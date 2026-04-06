@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Charter Scheduler</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,600;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0a1628;
+    --navy-mid: #112240;
+    --navy-light: #1d3461;
+    --teal: #00b4a0;
+    --teal-dim: #007a6b;
+    --cream: #f5f0e8;
+    --cream-dim: #e8e0d0;
+    --gold: #c9a84c;
+    --red: #e05252;
+    --green: #3dba7a;
+    --text: #f0ece4;
+    --text-dim: #8a9ab5;
+    --border: rgba(255,255,255,0.08);
+    --card: rgba(255,255,255,0.04);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--navy);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,180,160,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,180,160,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app { position: relative; z-index: 1; max-width: 780px; margin: 0 auto; padding: 48px 24px 80px; }
+
+  /* Header */
+  .header { margin-bottom: 48px; }
+  .header-tag { font-size: 10px; letter-spacing: 0.2em; color: var(--teal); text-transform: uppercase; margin-bottom: 12px; }
+  .header h1 {
+    font-family: 'Fraunces', serif;
+    font-size: 42px;
+    font-weight: 300;
+    color: var(--cream);
+    line-height: 1.1;
+    margin-bottom: 8px;
+  }
+  .header h1 em { font-style: italic; color: var(--teal); }
+  .header p { color: var(--text-dim); font-size: 12px; line-height: 1.7; max-width: 480px; }
+
+  /* API Key section */
+  .api-section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 28px;
+    transition: border-color 0.2s;
+  }
+  .api-section.has-key { border-color: rgba(0,180,160,0.3); }
+  .section-label {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+  .api-row { display: flex; gap: 10px; align-items: center; }
+  .api-input {
+    flex: 1;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .api-input:focus { border-color: var(--teal); }
+  .api-input::placeholder { color: var(--text-dim); }
+  .api-status {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .api-status.ok { background: rgba(61,186,122,0.15); color: var(--green); }
+  .api-status.none { background: rgba(201,168,76,0.15); color: var(--gold); }
+
+  /* Upload grid */
+  .boats-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+  .boat-slot {
+    background: var(--card);
+    border: 1px dashed rgba(255,255,255,0.12);
+    border-radius: 10px;
+    padding: 14px 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .boat-slot:hover { border-color: var(--teal); background: rgba(0,180,160,0.05); }
+  .boat-slot.loaded { border-style: solid; border-color: rgba(0,180,160,0.4); background: rgba(0,180,160,0.06); }
+  .boat-slot.loaded .slot-icon { color: var(--teal); }
+  .slot-icon { font-size: 20px; color: var(--text-dim); transition: color 0.2s; }
+  .slot-name { font-size: 11px; font-weight: 500; color: var(--cream); letter-spacing: 0.05em; }
+  .slot-status { font-size: 10px; color: var(--text-dim); }
+  .boat-slot.loaded .slot-status { color: var(--teal); }
+  .slot-remove {
+    position: absolute;
+    top: 6px; right: 8px;
+    font-size: 14px;
+    color: var(--text-dim);
+    cursor: pointer;
+    display: none;
+    background: none;
+    border: none;
+    line-height: 1;
+    padding: 2px;
+  }
+  .boat-slot.loaded .slot-remove { display: block; }
+  .slot-remove:hover { color: var(--red); }
+  input[type=file] { display: none; }
+
+  /* Main run button */
+  .run-btn {
+    width: 100%;
+    padding: 16px;
+    background: var(--teal);
+    color: var(--navy);
+    border: none;
+    border-radius: 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 28px;
+    position: relative;
+    overflow: hidden;
+  }
+  .run-btn:hover:not(:disabled) { background: #00cdb8; transform: translateY(-1px); }
+  .run-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .run-btn.loading { background: var(--teal-dim); }
+
+  /* Progress */
+  .progress-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 28px;
+    display: none;
+  }
+  .progress-box.visible { display: block; }
+  .progress-steps { display: flex; flex-direction: column; gap: 10px; }
+  .progress-step { display: flex; align-items: center; gap: 12px; }
+  .step-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .step-dot.active { background: var(--teal); box-shadow: 0 0 8px var(--teal); }
+  .step-dot.done { background: var(--green); }
+  .step-dot.error { background: var(--red); }
+  .step-text { font-size: 12px; color: var(--text-dim); transition: color 0.3s; }
+  .step-text.active { color: var(--text); }
+  .step-text.done { color: var(--green); }
+  .step-text.error { color: var(--red); }
+  .step-count { font-size: 10px; color: var(--teal); margin-left: auto; }
+
+  /* Results */
+  .results-box {
+    background: var(--card);
+    border: 1px solid rgba(0,180,160,0.25);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+    display: none;
+  }
+  .results-box.visible { display: block; }
+  .results-title {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 300;
+    color: var(--cream);
+    margin-bottom: 20px;
+  }
+  .stats-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 20px; }
+  .stat-card { background: rgba(255,255,255,0.04); border-radius: 8px; padding: 12px; text-align: center; }
+  .stat-val { font-size: 24px; font-weight: 500; color: var(--cream); font-family: 'Fraunces', serif; }
+  .stat-val.green { color: var(--green); }
+  .stat-val.red { color: var(--red); }
+  .stat-val.gold { color: var(--gold); }
+  .stat-lbl { font-size: 10px; color: var(--text-dim); margin-top: 3px; letter-spacing: 0.1em; text-transform: uppercase; }
+
+  /* Crew workload */
+  .crew-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); gap: 8px; margin-bottom: 20px; }
+  .crew-card { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+  .crew-name { font-size: 12px; font-weight: 500; color: var(--cream); margin-bottom: 2px; }
+  .crew-role { font-size: 10px; color: var(--text-dim); margin-bottom: 6px; }
+  .crew-nums { font-size: 11px; color: var(--text-dim); margin-bottom: 5px; }
+  .crew-bar { height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; }
+  .crew-bar-fill { height: 3px; border-radius: 2px; transition: width 0.5s; }
+  .crew-warn { font-size: 10px; color: var(--gold); margin-top: 4px; }
+
+  /* Schedule preview table */
+  .table-wrap { overflow-x: auto; margin-bottom: 20px; border-radius: 8px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th {
+    background: rgba(255,255,255,0.06);
+    padding: 8px 10px;
+    text-align: left;
+    color: var(--text-dim);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border);
+  }
+  td { padding: 7px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .badge { display: inline-block; padding: 2px 7px; border-radius: 20px; font-size: 10px; }
+  .badge-cap { background: rgba(0,180,160,0.15); color: var(--teal); }
+  .badge-crew { background: rgba(61,186,122,0.12); color: var(--green); }
+  .badge-none { background: rgba(224,82,82,0.15); color: var(--red); }
+  .badge-split { background: rgba(201,168,76,0.15); color: var(--gold); }
+  .boat-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+
+  /* Download buttons */
+  .dl-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .dl-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    letter-spacing: 0.03em;
+  }
+  .dl-btn-primary { background: var(--teal); color: var(--navy); }
+  .dl-btn-primary:hover { background: #00cdb8; }
+  .dl-btn-secondary { background: rgba(255,255,255,0.07); color: var(--text); border: 1px solid var(--border); }
+  .dl-btn-secondary:hover { background: rgba(255,255,255,0.12); }
+
+  .error-box {
+    background: rgba(224,82,82,0.08);
+    border: 1px solid rgba(224,82,82,0.25);
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-size: 12px;
+    color: #f08080;
+    margin-bottom: 20px;
+    display: none;
+  }
+  .error-box.visible { display: block; }
+
+  /* Boat color dots reference */
+  .boat-colors { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 6px; }
+  .boat-color-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-dim); }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .pulsing { animation: pulse 1.2s ease-in-out infinite; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <div class="header-tag">Triton Catamaran Charters</div>
+    <h1>Charter<br><em>Scheduler</em></h1>
+    <p>Upload FareHarbor calendar screenshots for each boat. AI reads every charter and builds the weekly crew schedule automatically.</p>
+  </div>
+
+  <!-- API Key -->
+  <div class="api-section" id="apiSection">
+    <div class="section-label">Anthropic API Key</div>
+    <div class="api-row">
+      <input type="password" class="api-input" id="apiKey" placeholder="sk-ant-api03-..." oninput="saveKey()">
+      <span class="api-status none" id="apiStatus">Not set</span>
+    </div>
+    <div style="font-size:10px;color:var(--text-dim);margin-top:8px">Saved locally in your browser — never sent anywhere except Anthropic.</div>
+  </div>
+
+  <!-- Boat upload slots -->
+  <div class="section-label" style="margin-bottom:10px">Upload boat calendars</div>
+  <div class="boats-grid" id="boatsGrid">
+    <div class="boat-slot" data-boat="Triton" id="slot-Triton">
+      <button class="slot-remove" onclick="removeBoat('Triton')">×</button>
+      <div class="slot-icon" id="icon-Triton">&#9875;</div>
+      <div class="slot-name">Triton</div>
+      <div class="slot-status" id="status-Triton">tap below</div>
+      <label style="margin-top:6px;cursor:pointer;background:rgba(0,180,160,0.15);border-radius:6px;padding:5px 12px;font-size:10px;color:#00b4a0;letter-spacing:0.05em">
+        Choose file
+        <input type="file" accept="image/*" style="display:none" onchange="loadBoatImage('Triton', this.files[0])">
+      </label>
+    </div>
+    <div class="boat-slot" data-boat="Alana" id="slot-Alana">
+      <button class="slot-remove" onclick="removeBoat('Alana')">×</button>
+      <div class="slot-icon" id="icon-Alana">&#9875;</div>
+      <div class="slot-name">Alana</div>
+      <div class="slot-status" id="status-Alana">tap below</div>
+      <label style="margin-top:6px;cursor:pointer;background:rgba(0,180,160,0.15);border-radius:6px;padding:5px 12px;font-size:10px;color:#00b4a0;letter-spacing:0.05em">
+        Choose file
+        <input type="file" accept="image/*" style="display:none" onchange="loadBoatImage('Alana', this.files[0])">
+      </label>
+    </div>
+    <div class="boat-slot" data-boat="Athena" id="slot-Athena">
+      <button class="slot-remove" onclick="removeBoat('Athena')">×</button>
+      <div class="slot-icon" id="icon-Athena">&#9875;</div>
+      <div class="slot-name">Athena</div>
+      <div class="slot-status" id="status-Athena">tap below</div>
+      <label style="margin-top:6px;cursor:pointer;background:rgba(0,180,160,0.15);border-radius:6px;padding:5px 12px;font-size:10px;color:#00b4a0;letter-spacing:0.05em">
+        Choose file
+        <input type="file" accept="image/*" style="display:none" onchange="loadBoatImage('Athena', this.files[0])">
+      </label>
+    </div>
+    <div class="boat-slot" data-boat="Malarky" id="slot-Malarky">
+      <button class="slot-remove" onclick="removeBoat('Malarky')">×</button>
+      <div class="slot-icon" id="icon-Malarky">&#9875;</div>
+      <div class="slot-name">Malarky</div>
+      <div class="slot-status" id="status-Malarky">tap below</div>
+      <label style="margin-top:6px;cursor:pointer;background:rgba(0,180,160,0.15);border-radius:6px;padding:5px 12px;font-size:10px;color:#00b4a0;letter-spacing:0.05em">
+        Choose file
+        <input type="file" accept="image/*" style="display:none" onchange="loadBoatImage('Malarky', this.files[0])">
+      </label>
+    </div>
+    <div class="boat-slot" data-boat="Aquata" id="slot-Aquata">
+      <button class="slot-remove" onclick="removeBoat('Aquata')">×</button>
+      <div class="slot-icon" id="icon-Aquata">&#9875;</div>
+      <div class="slot-name">Aquata</div>
+      <div class="slot-status" id="status-Aquata">tap below</div>
+      <label style="margin-top:6px;cursor:pointer;background:rgba(0,180,160,0.15);border-radius:6px;padding:5px 12px;font-size:10px;color:#00b4a0;letter-spacing:0.05em">
+        Choose file
+        <input type="file" accept="image/*" style="display:none" onchange="loadBoatImage('Aquata', this.files[0])">
+      </label>
+    </div>
+  </div>
+
+  <button class="run-btn" id="runBtn" onclick="runScheduler()">Build This Week's Schedule →</button>
+
+  <!-- Progress -->
+  <div class="progress-box" id="progressBox">
+    <div class="section-label" style="margin-bottom:14px">Processing</div>
+    <div class="progress-steps" id="progressSteps"></div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-box" id="errorBox"></div>
+
+  <!-- Results -->
+  <div class="results-box" id="resultsBox">
+    <div class="results-title">Schedule ready</div>
+    <div class="stats-row" id="statsRow"></div>
+    <div class="section-label" style="margin-bottom:10px">Crew workload</div>
+    <div class="crew-grid" id="crewGrid"></div>
+    <div class="section-label" style="margin-bottom:10px">Preview</div>
+    <div class="table-wrap"><table id="previewTable"><thead></thead><tbody></tbody></table></div>
+    <div class="dl-row">
+      <button class="dl-btn dl-btn-primary" onclick="downloadCSV()">Download CSV (Excel)</button>
+      <button class="dl-btn dl-btn-secondary" onclick="copySheets()">Copy for Google Sheets</button>
+      <button class="dl-btn dl-btn-secondary" onclick="resetAll()">New Schedule</button>
+    </div>
+    <div id="copyConfirm" style="display:none;font-size:11px;color:var(--green);margin-top:8px">Copied — paste into Google Sheets.</div>
+  </div>
+
+</div>
+
+<script>
+// ── CREW & BOAT CONFIG ────────────────────────────────────────────────────
+const CREW = [
+  {name:"Trevor",  role:"Captain",boats:["Triton"],       daysOff:["Tue","Wed"],maxHrs:40,minC:2,tritonPrimary:true},
+  {name:"Mitch",   role:"Captain",boats:["Triton"],       daysOff:["Mon","Tue"],maxHrs:40,minC:2,tritonPrimary:true},
+  {name:"Galan",   role:"Captain",boats:["any"],          daysOff:[],           maxHrs:40,minC:2,rank:1},
+  {name:"Charlie", role:"Captain",boats:["any"],          daysOff:[],           maxHrs:40,minC:2,rank:2,school:true},
+  {name:"Becca",   role:"Captain",boats:["any"],          daysOff:[],           maxHrs:40,minC:2,rank:3},
+  {name:"Tess",    role:"Captain",boats:["any"],          daysOff:[],           maxHrs:40,minC:2,rank:4},
+  {name:"Jake",    role:"Crew",   boats:["Triton"],       daysOff:[],           maxHrs:40,minC:2},
+  {name:"Mitchell",role:"Crew",   boats:["Triton","any"], daysOff:[],           maxHrs:40,minC:2},
+  {name:"Will",    role:"Crew",   boats:["any"],          daysOff:[],           maxHrs:40,minC:2},
+  {name:"Jason",   role:"Crew",   boats:["any"],          daysOff:[],           maxHrs:40,minC:2},
+  {name:"Angel",   role:"Crew",   boats:["any"],          daysOff:[],           maxHrs:40,minC:2},
+];
+const BOAT_STAFF = {Triton:{cap:1,crew:2},Athena:{cap:1,crew:1},Malarky:{cap:1,crew:1},Alana:{cap:1,crew:1},Aquata:{cap:1,crew:0}};
+const BOAT_COLORS = {Triton:"#00b4a0",Alana:"#e07fa0",Athena:"#7f9cf5",Malarky:"#4dd9c0",Aquata:"#c9a84c"};
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+const boatImages = {};
+let currentBoatTarget = null;
+let finalSchedule = [];
+
+// ── API KEY ───────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  const saved = localStorage.getItem('charter_api_key');
+  if (saved) {
+    document.getElementById('apiKey').value = saved;
+    updateKeyStatus(saved);
+  }
+});
+function saveKey() {
+  const val = document.getElementById('apiKey').value.trim();
+  localStorage.setItem('charter_api_key', val);
+  updateKeyStatus(val);
+}
+function updateKeyStatus(val) {
+  const el = document.getElementById('apiStatus');
+  const sec = document.getElementById('apiSection');
+  if (val && val.length > 20) {
+    el.textContent = 'Key saved'; el.className = 'api-status ok';
+    sec.classList.add('has-key');
+  } else {
+    el.textContent = 'Not set'; el.className = 'api-status none';
+    sec.classList.remove('has-key');
+  }
+}
+
+// ── FILE UPLOAD ───────────────────────────────────────────────────────────
+;
+  fi.click();
+}
+function loadBoatImage(boat, file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    boatImages[boat] = { b64: e.target.result.split(',')[1], mime: file.type || 'image/png', name: file.name };
+    const slot = document.getElementById('slot-'+boat);
+    if (slot) slot.classList.add('loaded');
+    const statusEl = document.getElementById('status-'+boat);
+    if (statusEl) statusEl.textContent = file.name.length > 16 ? file.name.slice(0,14)+'...' : file.name;
+    const iconEl = document.getElementById('icon-'+boat);
+    if (iconEl) iconEl.textContent = '✓';
+  };
+  reader.readAsDataURL(file);
+}
+function removeBoat(boat) {
+  delete boatImages[boat];
+  const slot = document.getElementById('slot-'+boat);
+  if (slot) slot.classList.remove('loaded');
+  const statusEl = document.getElementById('status-'+boat);
+  if (statusEl) statusEl.textContent = 'tap below';
+  const iconEl = document.getElementById('icon-'+boat);
+  if (iconEl) iconEl.textContent = '⚓';
+}
+
+// ── PROGRESS UI ───────────────────────────────────────────────────────────
+const steps = [];
+function initProgress(labels) {
+  steps.length = 0;
+  const container = document.getElementById('progressSteps');
+  container.innerHTML = '';
+  labels.forEach((label, i) => {
+    const div = document.createElement('div');
+    div.className = 'progress-step';
+    div.innerHTML = `<div class="step-dot" id="dot${i}"></div><div class="step-text" id="stxt${i}">${label}</div><div class="step-count" id="scnt${i}"></div>`;
+    container.appendChild(div);
+    steps.push({dot: `dot${i}`, txt: `stxt${i}`, cnt: `scnt${i}`});
+  });
+  document.getElementById('progressBox').classList.add('visible');
+}
+function setStep(i, state, count='') {
+  const s = steps[i];
+  document.getElementById(s.dot).className = `step-dot ${state}${state==='active'?' pulsing':''}`;
+  document.getElementById(s.txt).className = `step-text ${state}`;
+  if (count) document.getElementById(s.cnt).textContent = count;
+}
+
+// ── CLAUDE API CALL ───────────────────────────────────────────────────────
+async function callClaude(messages, maxTokens=2000) {
+  const key = document.getElementById('apiKey').value.trim();
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: maxTokens, messages })
+  });
+  if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message || `API error ${res.status}`); }
+  const data = await res.json();
+  return data.content.filter(b => b.type==='text').map(b => b.text).join('');
+}
+
+// ── EXTRACT CHARTERS FROM IMAGE ───────────────────────────────────────────
+async function extractFromImage(boatName, b64, mime) {
+  const prompt = `Extract every charter booking from this FareHarbor calendar screenshot for the boat named "${boatName}".
+
+RULES:
+- Label any "2.5 Hour Harbor Cruise", "Harbor Cruise", "Brunch Cruise", or "Public Charter" as charter_type "Public Charter"
+- Ignore all client names and staff initials (ignore "- C" / "- L" suffixes)
+- Ignore guest counts and capacity numbers
+- All charters on this calendar belong to boat: "${boatName}"
+- Derive the actual calendar date from the column headers (Sun/Mon/Tue etc) and the week row numbers shown
+- For duration_hrs: "2 Hour"=2, "2.5 Hour"=2.5, "3 Hour"=3, "4 Hour"=4, "8 Hour"=8
+
+Return ONLY a valid JSON array, no markdown, no explanation:
+[{"date":"YYYY-MM-DD","day":"Mon","time":"9:00 AM","charter_type":"Charter Name","boat":"${boatName}","duration_hrs":2}]`;
+
+  const text = await callClaude([{
+    role: 'user',
+    content: [
+      { type: 'image', source: { type: 'base64', media_type: mime, data: b64 } },
+      { type: 'text', text: prompt }
+    ]
+  }], 1500);
+  const clean = text.replace(/```json|```/g,'').trim();
+  return JSON.parse(clean);
+}
+
+// ── SCHEDULING LOGIC ──────────────────────────────────────────────────────
+function parseT(t) {
+  try {
+    const [time, ampm] = t.trim().split(' ');
+    let [h, m] = time.split(':').map(Number);
+    if (ampm==='PM' && h!==12) h+=12;
+    if (ampm==='AM' && h===12) h=0;
+    return h*60+m;
+  } catch { return 0; }
+}
+function fmtTime(mins) {
+  let h=Math.floor(mins/60)%24, m=mins%60;
+  const ampm=h>=12?'PM':'AM'; h=h%12||12;
+  return `${h}:${String(m).padStart(2,'0')} ${ampm}`;
+}
+function canWork(p, day, timeStr, dur, boat) {
+  if (p.daysOff.includes(day)) return false;
+  if (p.boats[0]!=='any' && !p.boats.includes(boat)) return false;
+  if (p.school) {
+    if (['Fri','Sat','Sun'].includes(day)) return true;
+    return (parseT(timeStr) + dur*60) <= 16*60;
+  }
+  return true;
+}
+function buildSchedule(charters) {
+  const hrs={}, cnt={};
+  CREW.forEach(c=>{hrs[c.name]=0;cnt[c.name]=0;});
+
+  // Count charters per (date,boat) for split logic
+  const dayBoatCount={};
+  charters.forEach(ch=>{
+    const k=`${ch.date}|${ch.boat}`;
+    dayBoatCount[k]=(dayBoatCount[k]||0)+1;
+  });
+
+  const dayBoatCapSlots={};   // (date,boat) -> [cap1, cap2]
+  const dayBoatCrewPool={};   // (date,boat) -> [crew...]
+  const dayBoatIdx={};        // (date,boat) -> charter index
+
+  const caps = CREW.filter(c=>c.role==='Captain');
+  const crewM = CREW.filter(c=>c.role==='Crew');
+
+  return charters.map(ch => {
+    const {date, day, time, charter_type, boat, duration_hrs} = ch;
+    const dur = duration_hrs || 2;
+    const staff = BOAT_STAFF[boat]||{cap:1,crew:0};
+    const k = `${date}|${boat}`;
+    const total = dayBoatCount[k]||1;
+    const idx = dayBoatIdx[k]||0;
+    dayBoatIdx[k] = idx+1;
+    const split = total>=4;
+    const slot = split && idx>=(Math.floor(total/2)) ? 1 : 0;
+    if (!dayBoatCapSlots[k]) dayBoatCapSlots[k]=[];
+    if (!dayBoatCrewPool[k]) dayBoatCrewPool[k]=[];
+
+    // Captain
+    let captain = null;
+    if (dayBoatCapSlots[k][slot] && (() => {
+      const p=CREW.find(x=>x.name===dayBoatCapSlots[k][slot]);
+      return p && canWork(p,day,time,dur,boat) && hrs[p.name]+dur<=p.maxHrs;
+    })()) {
+      captain = dayBoatCapSlots[k][slot];
+    } else {
+      const used = new Set(dayBoatCapSlots[k].filter(Boolean));
+      let pool;
+      if (boat==='Triton') {
+        const primaries = ['Trevor','Mitch'].filter(n=>{
+          if (used.has(n) && slot===0) return false;
+          if (used.has(n) && slot===1 && dayBoatCapSlots[k][0]===n) return false;
+          const p=CREW.find(x=>x.name===n);
+          return p && canWork(p,day,time,dur,boat) && hrs[n]+dur<=p.maxHrs;
+        });
+        if (primaries.length) { captain=primaries[0]; }
+        else {
+          pool = caps.filter(c=>c.rank&&!used.has(c.name)).sort((a,b)=>a.rank-b.rank||cnt[a.name]-cnt[b.name]);
+          if (!pool.length) pool = caps.filter(c=>c.rank).sort((a,b)=>a.rank-b.rank);
+          for (const p of pool) { if (canWork(p,day,time,dur,boat)&&hrs[p.name]+dur<=p.maxHrs){captain=p.name;break;} }
+        }
+      } else {
+        pool = caps.filter(c=>c.rank&&!used.has(c.name)).sort((a,b)=>cnt[a.name]-cnt[b.name]||a.rank-b.rank);
+        if (!pool.length) pool = caps.filter(c=>c.rank).sort((a,b)=>cnt[a.name]-cnt[b.name]||a.rank-b.rank);
+        for (const p of pool) { if (canWork(p,day,time,dur,boat)&&hrs[p.name]+dur<=p.maxHrs){captain=p.name;break;} }
+        if (!captain) {
+          for (const n of ['Trevor','Mitch']) {
+            const p=CREW.find(x=>x.name===n);
+            if (p&&canWork(p,day,time,dur,boat)&&hrs[n]+dur<=p.maxHrs){captain=n;break;}
+          }
+        }
+      }
+      if (captain) {
+        while (dayBoatCapSlots[k].length<=slot) dayBoatCapSlots[k].push(null);
+        dayBoatCapSlots[k][slot]=captain;
+      }
+    }
+    if (captain) { hrs[captain]+=dur; cnt[captain]+=1; }
+
+    // Crew
+    const crewAssigned=[];
+    if (staff.crew>0) {
+      const existing=dayBoatCrewPool[k];
+      for (const n of existing) {
+        if (crewAssigned.length>=staff.crew) break;
+        const p=CREW.find(x=>x.name===n);
+        if (p&&canWork(p,day,time,dur,boat)&&hrs[n]+dur<=p.maxHrs) { crewAssigned.push(n); hrs[n]+=dur; cnt[n]+=1; }
+      }
+      if (crewAssigned.length<staff.crew) {
+        let pool;
+        if (boat==='Triton') {
+          const jake=crewM.find(c=>c.name==='Jake');
+          const others=crewM.filter(c=>c.name!=='Jake'&&!existing.includes(c.name)).sort((a,b)=>cnt[a.name]-cnt[b.name]);
+          pool=(!existing.includes('Jake')?[jake]:[]).concat(others);
+        } else {
+          pool=crewM.filter(c=>c.name!=='Jake'&&!existing.includes(c.name)).sort((a,b)=>cnt[a.name]-cnt[b.name]);
+        }
+        for (const p of pool) {
+          if (crewAssigned.length>=staff.crew) break;
+          if (!canWork(p,day,time,dur,boat)||hrs[p.name]+dur>p.maxHrs) continue;
+          crewAssigned.push(p.name); hrs[p.name]+=dur; cnt[p.name]+=1;
+          if (!existing.includes(p.name)) dayBoatCrewPool[k].push(p.name);
+        }
+      }
+    }
+
+    const endMins = parseT(time)+dur*60;
+    const endTime = fmtTime(endMins);
+    let notes='';
+    if (!captain) notes='No captain available';
+    if (crewAssigned.length<staff.crew) notes+=(notes?' — ':'')+`Need ${staff.crew} crew`;
+    if (split) notes=(notes?notes+' · ':'')+`Split day (${slot===0?'AM':'PM'} shift)`;
+
+    return { date, day, time, end_time:endTime, charter_type, boat, duration:`${dur}hr`,
+             captain:captain||'UNASSIGNED', crew:crewAssigned, notes };
+  });
+}
+
+// ── MAIN RUN ──────────────────────────────────────────────────────────────
+async function runScheduler() {
+  const key = document.getElementById('apiKey').value.trim();
+  if (!key.startsWith('sk-ant')) { showError('Please enter your Anthropic API key first.'); return; }
+  const boats = Object.keys(boatImages);
+  if (!boats.length) { showError('Please upload at least one boat calendar screenshot.'); return; }
+
+  document.getElementById('runBtn').disabled=true;
+  document.getElementById('runBtn').classList.add('loading');
+  document.getElementById('runBtn').textContent='Building schedule...';
+  document.getElementById('resultsBox').classList.remove('visible');
+  document.getElementById('errorBox').classList.remove('visible');
+  finalSchedule=[];
+
+  const stepLabels = [...boats.map(b=>`Reading ${b} calendar`), 'Building optimized schedule'];
+  initProgress(stepLabels);
+
+  try {
+    let allCharters=[];
+
+    for (let i=0; i<boats.length; i++) {
+      setStep(i,'active');
+      const boat=boats[i];
+      const {b64,mime}=boatImages[boat];
+      const extracted = await extractFromImage(boat,b64,mime);
+      allCharters=[...allCharters,...extracted];
+      setStep(i,'done', `${extracted.length} charters`);
+    }
+
+    // Sort by date then time
+    allCharters.sort((a,b)=>{
+      const d=a.date.localeCompare(b.date);
+      return d||parseT(a.time)-parseT(b.time);
+    });
+
+    const schedStep=boats.length;
+    setStep(schedStep,'active');
+    finalSchedule=buildSchedule(allCharters);
+    setStep(schedStep,'done',`${finalSchedule.length} assigned`);
+
+    renderResults();
+  } catch(err) {
+    const activeIdx=steps.findIndex((_,i)=>document.getElementById(`dot${i}`).classList.contains('pulsing'));
+    if (activeIdx>=0) setStep(activeIdx,'error');
+    showError(`Error: ${err.message}`);
+  }
+
+  document.getElementById('runBtn').disabled=false;
+  document.getElementById('runBtn').classList.remove('loading');
+  document.getElementById('runBtn').textContent='Build This Week\'s Schedule →';
+}
+
+// ── RENDER RESULTS ────────────────────────────────────────────────────────
+function renderResults() {
+  const unassigned=finalSchedule.filter(s=>s.captain==='UNASSIGNED').length;
+  const hrs={}, cnt={};
+  CREW.forEach(c=>{hrs[c.name]=0;cnt[c.name]=0;});
+  finalSchedule.forEach(s=>{
+    if(s.captain&&s.captain!=='UNASSIGNED'){hrs[s.captain]=(hrs[s.captain]||0)+(parseFloat(s.duration)||2);cnt[s.captain]=(cnt[s.captain]||0)+1;}
+    (s.crew||[]).forEach(m=>{hrs[m]=(hrs[m]||0)+(parseFloat(s.duration)||2);cnt[m]=(cnt[m]||0)+1;});
+  });
+
+  // Stats
+  document.getElementById('statsRow').innerHTML=`
+    <div class="stat-card"><div class="stat-val">${finalSchedule.length}</div><div class="stat-lbl">Charters</div></div>
+    <div class="stat-card"><div class="stat-val">${CREW.length}</div><div class="stat-lbl">Staff</div></div>
+    <div class="stat-card"><div class="stat-val ${unassigned>0?'red':'green'}">${unassigned}</div><div class="stat-lbl">Unassigned</div></div>
+    <div class="stat-card"><div class="stat-val gold">${Math.round(Object.values(hrs).reduce((a,b)=>a+b,0)/CREW.length)}h</div><div class="stat-lbl">Avg hrs</div></div>`;
+
+  // Crew
+  document.getElementById('crewGrid').innerHTML=CREW.map(p=>{
+    const h=hrs[p.name]||0, n=cnt[p.name]||0;
+    const pct=Math.min(Math.round((h/40)*100),100);
+    const barColor=h>36?'#e05252':h>24?'#c9a84c':'#3dba7a';
+    return `<div class="crew-card">
+      <div class="crew-name">${p.name}</div>
+      <div class="crew-role">${p.role}</div>
+      <div class="crew-nums">${n} charters · ${h}h</div>
+      <div class="crew-bar"><div class="crew-bar-fill" style="width:${pct}%;background:${barColor}"></div></div>
+      ${n<p.minC?`<div class="crew-warn">below ${p.minC} min</div>`:''}
+    </div>`;}).join('');
+
+  // Table
+  const thead=document.querySelector('#previewTable thead');
+  const tbody=document.querySelector('#previewTable tbody');
+  thead.innerHTML='<tr>'+['Date','Day','Start','End','Charter','Boat','Captain','Crew','Notes'].map(h=>`<th>${h}</th>`).join('')+'</tr>';
+  tbody.innerHTML=finalSchedule.map(s=>{
+    const c1=s.crew[0]||''; const c2=s.crew[1]||'';
+    const crewStr=[c1,c2].filter(Boolean).map(n=>`<span class="badge badge-crew">${n}</span>`).join(' ')||'—';
+    const bc=BOAT_COLORS[s.boat]||'#888';
+    const split=s.notes&&s.notes.includes('Split');
+    return `<tr>
+      <td>${s.date}</td><td>${s.day}</td><td>${s.time}</td><td>${s.end_time}</td>
+      <td>${s.charter_type}</td>
+      <td><span class="boat-dot" style="background:${bc}"></span>${s.boat}</td>
+      <td>${s.captain==='UNASSIGNED'?'<span class="badge badge-none">Unassigned</span>':'<span class="badge badge-cap">'+s.captain+'</span>'}</td>
+      <td>${crewStr}</td>
+      <td style="color:${split?'#c9a84c':'var(--text-dim)';font-size:10px">${s.notes||''}</td>
+    </tr>`;}).join('');
+
+  document.getElementById('resultsBox').classList.add('visible');
+  document.getElementById('resultsBox').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// ── EXPORT ────────────────────────────────────────────────────────────────
+function exportCSV() {
+  const hdrs=['Date','Day','Start Time','End Time','Charter Type','Boat','Duration','Captain','Crew 1','Crew 2','Notes'];
+  const rows=finalSchedule.map(s=>[s.date,s.day,s.time,s.end_time,s.charter_type,s.boat,s.duration,s.captain,s.crew[0]||'',s.crew[1]||'',s.notes]);
+  const csv=[hdrs,...rows].map(r=>r.map(v=>'"'+(v||'')+'"').join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=`charter_schedule_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+function downloadCSV(){ exportCSV(); }
+function copySheets(){
+  const hdrs=['Date','Day','Start Time','End Time','Charter Type','Boat','Duration','Captain','Crew 1','Crew 2','Notes'];
+  const rows=finalSchedule.map(s=>[s.date,s.day,s.time,s.end_time,s.charter_type,s.boat,s.duration,s.captain,s.crew[0]||'',s.crew[1]||'',s.notes||'']);
+  navigator.clipboard.writeText([hdrs,...rows].map(r=>r.join('\t')).join('\n')).then(()=>{
+    const el=document.getElementById('copyConfirm');
+    el.style.display='block';
+    setTimeout(()=>el.style.display='none',3000);
+  });
+}
+function showError(msg){
+  const el=document.getElementById('errorBox');
+  el.textContent=msg; el.classList.add('visible');
+}
+function resetAll(){
+  finalSchedule=[];
+  Object.keys(boatImages).forEach(b=>removeBoat(b));
+  document.getElementById('resultsBox').classList.remove('visible');
+  document.getElementById('progressBox').classList.remove('visible');
+  document.getElementById('errorBox').classList.remove('visible');
+}
+</script>
+</body>
+</html>
