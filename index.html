@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Triton Catamaran Charters — Scheduler</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,600;1,300&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy: #0a1628;
+  --navy-mid: #112240;
+  --teal: #00b4a0;
+  --teal-dim: #007a6b;
+  --cream: #f5f0e8;
+  --gold: #c9a84c;
+  --red: #e05252;
+  --green: #3dba7a;
+  --text: #f0ece4;
+  --text-dim: #8a9ab5;
+  --border: rgba(255,255,255,0.1);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--navy); color: var(--text); font-family: 'DM Mono', monospace; font-size: 13px; min-height: 100vh; }
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: linear-gradient(rgba(0,180,160,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,180,160,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none; z-index: 0;
+}
+.app { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; padding: 48px 24px 80px; }
+.header { margin-bottom: 40px; }
+.header-tag { font-size: 10px; letter-spacing: 0.2em; color: var(--teal); text-transform: uppercase; margin-bottom: 10px; }
+.header h1 { font-family: 'Fraunces', serif; font-size: 40px; font-weight: 300; color: var(--cream); line-height: 1.1; margin-bottom: 8px; }
+.header h1 em { font-style: italic; color: var(--teal); }
+.header p { color: var(--text-dim); font-size: 12px; line-height: 1.7; }
+.card { background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 12px; padding: 22px 24px; margin-bottom: 20px; }
+.card-label { font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 12px; }
+/* API Key */
+.key-row { display: flex; gap: 10px; align-items: center; }
+.key-input {
+  flex: 1; background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+  border-radius: 8px; padding: 11px 14px; color: var(--text);
+  font-family: 'DM Mono', monospace; font-size: 12px; outline: none;
+  transition: border-color 0.2s;
+}
+.key-input:focus { border-color: var(--teal); }
+.key-input::placeholder { color: var(--text-dim); }
+.key-badge { font-size: 11px; padding: 4px 12px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
+.key-badge.ok { background: rgba(61,186,122,0.15); color: var(--green); }
+.key-badge.no { background: rgba(201,168,76,0.15); color: var(--gold); }
+.key-hint { font-size: 10px; color: var(--text-dim); margin-top: 8px; }
+/* Boat upload rows */
+.boat-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.boat-row:last-child { border-bottom: none; padding-bottom: 0; }
+.boat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.boat-name { font-size: 12px; font-weight: 500; color: var(--cream); width: 80px; flex-shrink: 0; }
+.upload-label {
+  display: inline-block; cursor: pointer;
+  background: rgba(255,255,255,0.07); border: 1px solid var(--border);
+  border-radius: 7px; padding: 7px 14px; font-size: 11px; color: var(--text-dim);
+  transition: all 0.2s; font-family: 'DM Mono', monospace;
+}
+.upload-label:hover { background: rgba(0,180,160,0.12); border-color: var(--teal); color: var(--teal); }
+.file-status { font-size: 11px; color: var(--text-dim); flex: 1; }
+.file-status.loaded { color: var(--teal); }
+.clear-btn { font-size: 18px; color: var(--text-dim); background: none; border: none; cursor: pointer; padding: 0 4px; line-height: 1; display: none; }
+.clear-btn:hover { color: var(--red); }
+.clear-btn.visible { display: block; }
+/* Run button */
+.run-btn {
+  width: 100%; padding: 15px; background: var(--teal); color: var(--navy);
+  border: none; border-radius: 10px; font-family: 'DM Mono', monospace;
+  font-size: 13px; font-weight: 500; letter-spacing: 0.05em;
+  cursor: pointer; transition: all 0.2s; margin-bottom: 20px;
+}
+.run-btn:hover:not(:disabled) { background: #00cdb8; transform: translateY(-1px); }
+.run-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+/* Progress */
+.progress { display: none; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; margin-bottom: 20px; }
+.progress.show { display: block; }
+.prog-label { font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 14px; }
+.prog-step { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.prog-step:last-child { margin-bottom: 0; }
+.prog-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.1); flex-shrink: 0; transition: background 0.3s; }
+.prog-dot.active { background: var(--teal); box-shadow: 0 0 8px var(--teal); animation: pulse 1.2s ease-in-out infinite; }
+.prog-dot.done { background: var(--green); animation: none; }
+.prog-dot.err { background: var(--red); animation: none; }
+.prog-text { font-size: 12px; color: var(--text-dim); flex: 1; }
+.prog-text.active { color: var(--text); }
+.prog-text.done { color: var(--green); }
+.prog-count { font-size: 10px; color: var(--teal); }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
+/* Error */
+.error-box { display: none; background: rgba(224,82,82,0.08); border: 1px solid rgba(224,82,82,0.25); border-radius: 10px; padding: 14px 18px; font-size: 12px; color: #f08080; margin-bottom: 20px; }
+.error-box.show { display: block; }
+/* Results */
+.results { display: none; background: rgba(255,255,255,0.04); border: 1px solid rgba(0,180,160,0.25); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+.results.show { display: block; }
+.results-title { font-family: 'Fraunces', serif; font-size: 24px; font-weight: 300; color: var(--cream); margin-bottom: 20px; }
+.stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 22px; }
+.stat { background: rgba(255,255,255,0.04); border-radius: 8px; padding: 12px; text-align: center; }
+.stat-val { font-family: 'Fraunces', serif; font-size: 26px; font-weight: 300; }
+.stat-val.g { color: var(--green); }
+.stat-val.r { color: var(--red); }
+.stat-val.gold { color: var(--gold); }
+.stat-lbl { font-size: 10px; color: var(--text-dim); margin-top: 3px; letter-spacing: 0.08em; text-transform: uppercase; }
+.crew-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(140px,1fr)); gap: 8px; margin-bottom: 22px; }
+.crew-card { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+.crew-nm { font-size: 12px; font-weight: 500; color: var(--cream); }
+.crew-rl { font-size: 10px; color: var(--text-dim); margin-bottom: 5px; }
+.crew-st { font-size: 11px; color: var(--text-dim); margin-bottom: 4px; }
+.bar-bg { height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; }
+.bar-fill { height: 3px; border-radius: 2px; }
+.crew-warn { font-size: 10px; color: var(--gold); margin-top: 3px; }
+.sec-label { font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 10px; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 20px; }
+table { width: 100%; border-collapse: collapse; font-size: 11px; }
+th { background: rgba(255,255,255,0.06); padding: 8px 10px; text-align: left; color: var(--text-dim); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 1px solid var(--border); white-space: nowrap; }
+td { padding: 7px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); white-space: nowrap; }
+tr:last-child td { border-bottom: none; }
+.bdg { display: inline-block; padding: 2px 7px; border-radius: 20px; font-size: 10px; }
+.bdg-c { background: rgba(0,180,160,0.15); color: var(--teal); }
+.bdg-cr { background: rgba(61,186,122,0.12); color: var(--green); }
+.bdg-un { background: rgba(224,82,82,0.15); color: var(--red); }
+.dl-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.dl-btn { padding: 10px 20px; border-radius: 8px; font-family: 'DM Mono', monospace; font-size: 12px; cursor: pointer; border: none; transition: all 0.2s; letter-spacing: 0.03em; }
+.dl-primary { background: var(--teal); color: var(--navy); font-weight: 500; }
+.dl-primary:hover { background: #00cdb8; }
+.dl-secondary { background: rgba(255,255,255,0.07); color: var(--text); border: 1px solid var(--border); }
+.dl-secondary:hover { background: rgba(255,255,255,0.12); }
+.copy-confirm { display: none; font-size: 11px; color: var(--green); margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <div class="header-tag">Triton Catamaran Charters</div>
+    <h1>Charter<br><em>Scheduler</em></h1>
+    <p>Upload each boat's FareHarbor calendar screenshot. AI reads every charter and builds the optimized crew schedule.</p>
+  </div>
+
+  <!-- API Key -->
+  <div class="card">
+    <div class="card-label">Anthropic API Key</div>
+    <div class="key-row">
+      <input type="password" class="key-input" id="apiKey" placeholder="sk-ant-api03-..." oninput="onKeyInput(this.value)">
+      <span class="key-badge no" id="keyBadge">Not set</span>
+    </div>
+    <div class="key-hint">Saved in your browser automatically. Never shared with anyone except Anthropic.</div>
+  </div>
+
+  <!-- Boat uploads -->
+  <div class="card">
+    <div class="card-label">Boat Calendar Screenshots</div>
+    <div id="boatRows">
+      <div class="boat-row">
+        <div class="boat-dot" style="background:#00b4a0"></div>
+        <div class="boat-name">Triton</div>
+        <label class="upload-label">
+          Choose file
+          <input type="file" accept="image/*" style="display:none" onchange="onFile('Triton',this)">
+        </label>
+        <span class="file-status" id="fs-Triton">No file chosen</span>
+        <button class="clear-btn" id="clr-Triton" onclick="clearFile('Triton')">×</button>
+      </div>
+      <div class="boat-row">
+        <div class="boat-dot" style="background:#e07fa0"></div>
+        <div class="boat-name">Alana</div>
+        <label class="upload-label">
+          Choose file
+          <input type="file" accept="image/*" style="display:none" onchange="onFile('Alana',this)">
+        </label>
+        <span class="file-status" id="fs-Alana">No file chosen</span>
+        <button class="clear-btn" id="clr-Alana" onclick="clearFile('Alana')">×</button>
+      </div>
+      <div class="boat-row">
+        <div class="boat-dot" style="background:#7f9cf5"></div>
+        <div class="boat-name">Athena</div>
+        <label class="upload-label">
+          Choose file
+          <input type="file" accept="image/*" style="display:none" onchange="onFile('Athena',this)">
+        </label>
+        <span class="file-status" id="fs-Athena">No file chosen</span>
+        <button class="clear-btn" id="clr-Athena" onclick="clearFile('Athena')">×</button>
+      </div>
+      <div class="boat-row">
+        <div class="boat-dot" style="background:#4dd9c0"></div>
+        <div class="boat-name">Malarky</div>
+        <label class="upload-label">
+          Choose file
+          <input type="file" accept="image/*" style="display:none" onchange="onFile('Malarky',this)">
+        </label>
+        <span class="file-status" id="fs-Malarky">No file chosen</span>
+        <button class="clear-btn" id="clr-Malarky" onclick="clearFile('Malarky')">×</button>
+      </div>
+      <div class="boat-row">
+        <div class="boat-dot" style="background:#c9a84c"></div>
+        <div class="boat-name">Aquata</div>
+        <label class="upload-label">
+          Choose file
+          <input type="file" accept="image/*" style="display:none" onchange="onFile('Aquata',this)">
+        </label>
+        <span class="file-status" id="fs-Aquata">No file chosen</span>
+        <button class="clear-btn" id="clr-Aquata" onclick="clearFile('Aquata')">×</button>
+      </div>
+    </div>
+  </div>
+
+  <button class="run-btn" id="runBtn" onclick="run()">Build This Week's Schedule →</button>
+
+  <div class="progress" id="progress"></div>
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="results" id="results">
+    <div class="results-title">Schedule ready</div>
+    <div class="stats-grid" id="statsGrid"></div>
+    <div class="sec-label">Crew workload</div>
+    <div class="crew-grid" id="crewGrid"></div>
+    <div class="sec-label">Full schedule</div>
+    <div class="table-wrap"><table><thead id="tHead"></thead><tbody id="tBody"></tbody></table></div>
+    <div class="dl-row">
+      <button class="dl-btn dl-primary" onclick="dlCSV()">Download CSV (Excel)</button>
+      <button class="dl-btn dl-secondary" onclick="copySheets()">Copy for Google Sheets</button>
+      <button class="dl-btn dl-secondary" onclick="resetAll()">New Schedule</button>
+    </div>
+    <div class="copy-confirm" id="copyConfirm">Copied — paste directly into Google Sheets.</div>
+  </div>
+
+</div>
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────
+const CREW=[
+  {name:"Trevor",  role:"Captain",boats:["Triton"],      daysOff:["Tue","Wed"],maxHrs:40,minC:2,primary:true},
+  {name:"Mitch",   role:"Captain",boats:["Triton"],      daysOff:["Mon","Tue"],maxHrs:40,minC:2,primary:true},
+  {name:"Galan",   role:"Captain",boats:["any"],         daysOff:[],maxHrs:40,minC:2,rank:1},
+  {name:"Charlie", role:"Captain",boats:["any"],         daysOff:[],maxHrs:40,minC:2,rank:2,school:true},
+  {name:"Becca",   role:"Captain",boats:["any"],         daysOff:[],maxHrs:40,minC:2,rank:3},
+  {name:"Tess",    role:"Captain",boats:["any"],         daysOff:[],maxHrs:40,minC:2,rank:4},
+  {name:"Jake",    role:"Crew",   boats:["Triton"],      daysOff:[],maxHrs:40,minC:2},
+  {name:"Mitchell",role:"Crew",   boats:["Triton","any"],daysOff:[],maxHrs:40,minC:2},
+  {name:"Will",    role:"Crew",   boats:["any"],         daysOff:[],maxHrs:40,minC:2},
+  {name:"Jason",   role:"Crew",   boats:["any"],         daysOff:[],maxHrs:40,minC:2},
+  {name:"Angel",   role:"Crew",   boats:["any"],         daysOff:[],maxHrs:40,minC:2},
+];
+const BOAT_STAFF={Triton:{cap:1,crew:2},Athena:{cap:1,crew:1},Malarky:{cap:1,crew:1},Alana:{cap:1,crew:1},Aquata:{cap:1,crew:0}};
+const BOAT_COLORS={Triton:"#00b4a0",Alana:"#e07fa0",Athena:"#7f9cf5",Malarky:"#4dd9c0",Aquata:"#c9a84c"};
+
+// ── STATE ─────────────────────────────────────────────────────────
+const imgs={};
+let sched=[];
+
+// ── API KEY ───────────────────────────────────────────────────────
+window.onload=()=>{
+  const k=localStorage.getItem('tcc_api_key')||'';
+  if(k){document.getElementById('apiKey').value=k;updateBadge(k);}
+};
+function onKeyInput(v){
+  localStorage.setItem('tcc_api_key',v);
+  updateBadge(v);
+}
+function updateBadge(v){
+  const el=document.getElementById('keyBadge');
+  if(v&&v.trim().length>20){
+    el.textContent='Key saved';el.className='key-badge ok';
+  }else{
+    el.textContent='Not set';el.className='key-badge no';
+  }
+}
+
+// ── FILE HANDLING ─────────────────────────────────────────────────
+function onFile(boat,input){
+  const file=input.files[0];
+  if(!file)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    imgs[boat]={b64:e.target.result.split(',')[1],mime:file.type||'image/png'};
+    const nm=file.name.length>20?file.name.slice(0,18)+'...':file.name;
+    const fs=document.getElementById('fs-'+boat);
+    fs.textContent=nm;fs.className='file-status loaded';
+    document.getElementById('clr-'+boat).className='clear-btn visible';
+  };
+  r.readAsDataURL(file);
+}
+function clearFile(boat){
+  delete imgs[boat];
+  document.getElementById('fs-'+boat).textContent='No file chosen';
+  document.getElementById('fs-'+boat).className='file-status';
+  document.getElementById('clr-'+boat).className='clear-btn';
+}
+
+// ── PROGRESS ──────────────────────────────────────────────────────
+let progSteps=[];
+function initProg(labels){
+  progSteps=labels.map((_,i)=>i);
+  const el=document.getElementById('progress');
+  el.innerHTML='<div class="prog-label">Processing</div>'+
+    labels.map((l,i)=>`<div class="prog-step"><div class="prog-dot" id="pd${i}"></div><div class="prog-text" id="pt${i}">${l}</div><div class="prog-count" id="pc${i}"></div></div>`).join('');
+  el.className='progress show';
+}
+function setP(i,state,cnt=''){
+  document.getElementById('pd'+i).className='prog-dot '+state;
+  document.getElementById('pt'+i).className='prog-text '+state;
+  if(cnt)document.getElementById('pc'+i).textContent=cnt;
+}
+
+// ── CLAUDE API ────────────────────────────────────────────────────
+async function claude(messages,maxT=1500){
+  const key=document.getElementById('apiKey').value.trim();
+  const r=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:maxT,messages})
+  });
+  if(!r.ok){const e=await r.json();throw new Error(e.error?.message||'API error '+r.status);}
+  const d=await r.json();
+  return d.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+}
+
+// ── EXTRACT CHARTERS ──────────────────────────────────────────────
+async function extract(boat,b64,mime){
+  const prompt='Extract every charter booking from this FareHarbor calendar screenshot for boat "'+boat+'".'+
+    ' RULES: Label "2.5 Hour Harbor Cruise","Harbor Cruise","Brunch Cruise" as "Public Charter".'+
+    ' Ignore client names and initials (- C, - L).'+
+    ' All charters belong to boat: "'+boat+'".'+
+    ' Derive dates from calendar column headers and week row numbers.'+
+    ' duration_hrs: 2 Hour=2, 2.5 Hour=2.5, 3 Hour=3, 4 Hour=4, 8 Hour=8.'+
+    ' Return ONLY a valid JSON array, no markdown, no explanation:'+
+    ' [{"date":"YYYY-MM-DD","day":"Mon","time":"9:00 AM","charter_type":"Name","boat":"'+boat+'","duration_hrs":2}]';
+  const txt=await claude([{role:'user',content:[
+    {type:'image',source:{type:'base64',media_type:mime,data:b64}},
+    {type:'text',text:prompt}
+  ]}],3000);
+  const clean=txt.replace(/```json|```/g,'').trim();
+  try{
+    return JSON.parse(clean);
+  }catch(e){
+    // Try to recover partial JSON by finding last complete object
+    const lastClose=clean.lastIndexOf('}');
+    if(lastClose>0){
+      const partial=clean.slice(0,lastClose+1)+']';
+      try{return JSON.parse(partial);}catch(e2){}
+    }
+    throw new Error('Could not read '+boat+' calendar. Please try a clearer screenshot.');
+  }
+}
+
+// ── SCHEDULE LOGIC ────────────────────────────────────────────────
+function parseT(t){
+  try{
+    const[time,ap]=t.trim().split(' ');
+    let[h,m]=time.split(':').map(Number);
+    if(ap==='PM'&&h!==12)h+=12;
+    if(ap==='AM'&&h===12)h=0;
+    return h*60+m;
+  }catch{return 0;}
+}
+function fmtT(mins){
+  let h=Math.floor(mins/60)%24,m=mins%60;
+  const ap=h>=12?'PM':'AM';h=h%12||12;
+  return `${h}:${String(m).padStart(2,'0')} ${ap}`;
+}
+function canWork(p,day,t,dur,boat){
+  if(p.daysOff.includes(day))return false;
+  if(p.boats[0]!=='any'&&!p.boats.includes(boat))return false;
+  if(p.school){
+    if(['Fri','Sat','Sun'].includes(day))return true;
+    return(parseT(t)+dur*60)<=960;
+  }
+  return true;
+}
+function buildSched(charters){
+  const hrs={},cnt={};
+  CREW.forEach(c=>{hrs[c.name]=0;cnt[c.name]=0;});
+  const dbc={},dbcs={},dbcp={},dbi={};
+  charters.forEach(ch=>{const k=ch.date+'|'+ch.boat;dbc[k]=(dbc[k]||0)+1;});
+  const caps=CREW.filter(c=>c.role==='Captain');
+  const crew=CREW.filter(c=>c.role==='Crew');
+  return charters.map(ch=>{
+    const{date,day,time,charter_type,boat,duration_hrs:dur}=ch;
+    const staff=BOAT_STAFF[boat]||{cap:1,crew:0};
+    const k=date+'|'+boat;
+    const total=dbc[k]||1,idx=dbi[k]||0;
+    dbi[k]=(idx+1);
+    const split=total>=4,slot=split&&idx>=Math.floor(total/2)?1:0;
+    if(!dbcs[k])dbcs[k]=[];
+    if(!dbcp[k])dbcp[k]=[];
+    let cap=null;
+    if(dbcs[k][slot]){
+      const p=CREW.find(x=>x.name===dbcs[k][slot]);
+      if(p&&canWork(p,day,time,dur,boat)&&hrs[p.name]+dur<=p.maxHrs)cap=dbcs[k][slot];
+    }
+    if(!cap){
+      const used=new Set(dbcs[k].filter(Boolean));
+      if(boat==='Triton'){
+        for(const n of['Trevor','Mitch']){
+          if(used.has(n)&&(slot===0||dbcs[k][0]===n))continue;
+          const p=CREW.find(x=>x.name===n);
+          if(p&&canWork(p,day,time,dur,boat)&&hrs[n]+dur<=p.maxHrs){cap=n;break;}
+        }
+        if(!cap){
+          const pool=caps.filter(c=>c.rank&&!used.has(c.name)).sort((a,b)=>a.rank-b.rank||cnt[a.name]-cnt[b.name]);
+          for(const p of(pool.length?pool:caps.filter(c=>c.rank).sort((a,b)=>a.rank-b.rank))){
+            if(canWork(p,day,time,dur,boat)&&hrs[p.name]+dur<=p.maxHrs){cap=p.name;break;}
+          }
+        }
+      }else{
+        const pool=caps.filter(c=>c.rank&&!used.has(c.name)).sort((a,b)=>cnt[a.name]-cnt[b.name]||a.rank-b.rank);
+        for(const p of(pool.length?pool:caps.filter(c=>c.rank).sort((a,b)=>cnt[a.name]-cnt[b.name]||a.rank-b.rank))){
+          if(canWork(p,day,time,dur,boat)&&hrs[p.name]+dur<=p.maxHrs){cap=p.name;break;}
+        }
+        if(!cap)for(const n of['Trevor','Mitch']){
+          const p=CREW.find(x=>x.name===n);
+          if(p&&canWork(p,day,time,dur,boat)&&hrs[n]+dur<=p.maxHrs){cap=n;break;}
+        }
+      }
+      if(cap){while(dbcs[k].length<=slot)dbcs[k].push(null);dbcs[k][slot]=cap;}
+    }
+    if(cap){hrs[cap]+=dur;cnt[cap]+=1;}
+    const crewA=[];
+    if(staff.crew>0){
+      for(const n of dbcp[k]){
+        if(crewA.length>=staff.crew)break;
+        const p=CREW.find(x=>x.name===n);
+        if(p&&canWork(p,day,time,dur,boat)&&hrs[n]+dur<=p.maxHrs){crewA.push(n);hrs[n]+=dur;cnt[n]+=1;}
+      }
+      if(crewA.length<staff.crew){
+        const jake=crew.find(c=>c.name==='Jake');
+        const pool=boat==='Triton'
+          ?[(jake&&!dbcp[k].includes('Jake')?jake:null),...crew.filter(c=>c.name!=='Jake'&&!dbcp[k].includes(c.name)).sort((a,b)=>cnt[a.name]-cnt[b.name])].filter(Boolean)
+          :crew.filter(c=>c.name!=='Jake'&&!dbcp[k].includes(c.name)).sort((a,b)=>cnt[a.name]-cnt[b.name]);
+        for(const p of pool){
+          if(crewA.length>=staff.crew)break;
+          if(!canWork(p,day,time,dur,boat)||hrs[p.name]+dur>p.maxHrs)continue;
+          crewA.push(p.name);hrs[p.name]+=dur;cnt[p.name]+=1;
+          if(!dbcp[k].includes(p.name))dbcp[k].push(p.name);
+        }
+      }
+    }
+    const endT=fmtT(parseT(time)+dur*60);
+    let notes='';
+    if(!cap)notes='No captain available';
+    if(crewA.length<staff.crew)notes+=(notes?' — ':'')+`Need ${staff.crew} crew`;
+    if(split)notes=(notes?notes+' · ':'')+`Split day (${slot===0?'shift 1':'shift 2'})`;
+    return{date,day,time,end_time:endT,charter_type,boat,duration:`${dur}hr`,captain:cap||'UNASSIGNED',crew:crewA,notes};
+  });
+}
+
+// ── MAIN RUN ──────────────────────────────────────────────────────
+async function run(){
+  const key=document.getElementById('apiKey').value.trim();
+  if(!key||key.length<20){showErr('Please enter your Anthropic API key first.');return;}
+  const boats=Object.keys(imgs);
+  if(!boats.length){showErr('Please upload at least one boat calendar screenshot.');return;}
+  document.getElementById('runBtn').disabled=true;
+  document.getElementById('runBtn').textContent='Building schedule...';
+  document.getElementById('results').className='results';
+  document.getElementById('errorBox').className='error-box';
+  sched=[];
+  const labels=[...boats.map(b=>`Reading ${b} calendar`),'Building optimized schedule'];
+  initProg(labels);
+  try{
+    let all=[];
+    for(let i=0;i<boats.length;i++){
+      setP(i,'active');
+      const{b64,mime}=imgs[boats[i]];
+      const extracted=await extract(boats[i],b64,mime);
+      all=[...all,...extracted];
+      setP(i,'done',`${extracted.length} charters`);
+    }
+    all.sort((a,b)=>a.date.localeCompare(b.date)||parseT(a.time)-parseT(b.time));
+    setP(boats.length,'active');
+    sched=buildSched(all);
+    setP(boats.length,'done',`${sched.length} assigned`);
+    renderResults();
+  }catch(e){
+    showErr('Error: '+e.message);
+  }
+  document.getElementById('runBtn').disabled=false;
+  document.getElementById('runBtn').textContent="Build This Week's Schedule →";
+}
+
+// ── RENDER ────────────────────────────────────────────────────────
+function renderResults(){
+  const unassigned=sched.filter(s=>s.captain==='UNASSIGNED').length;
+  const hrs={},cnt={};
+  CREW.forEach(c=>{hrs[c.name]=0;cnt[c.name]=0;});
+  sched.forEach(s=>{
+    if(s.captain&&s.captain!=='UNASSIGNED'){hrs[s.captain]=(hrs[s.captain]||0)+parseFloat(s.duration);cnt[s.captain]=(cnt[s.captain]||0)+1;}
+    s.crew.forEach(m=>{hrs[m]=(hrs[m]||0)+parseFloat(s.duration);cnt[m]=(cnt[m]||0)+1;});
+  });
+  const avgH=Math.round(Object.values(hrs).reduce((a,b)=>a+b,0)/CREW.length);
+  document.getElementById('statsGrid').innerHTML=`
+    <div class="stat"><div class="stat-val">${sched.length}</div><div class="stat-lbl">Charters</div></div>
+    <div class="stat"><div class="stat-val">${CREW.length}</div><div class="stat-lbl">Staff</div></div>
+    <div class="stat"><div class="stat-val ${unassigned>0?'r':'g'}">${unassigned}</div><div class="stat-lbl">Unassigned</div></div>
+    <div class="stat"><div class="stat-val gold">${avgH}h</div><div class="stat-lbl">Avg hrs</div></div>`;
+  document.getElementById('crewGrid').innerHTML=CREW.map(p=>{
+    const h=hrs[p.name]||0,n=cnt[p.name]||0;
+    const pct=Math.min(Math.round(h/40*100),100);
+    const bc=h>36?'#e05252':h>24?'#c9a84c':'#3dba7a';
+    return`<div class="crew-card"><div class="crew-nm">${p.name}</div><div class="crew-rl">${p.role}</div><div class="crew-st">${n} charters · ${h}h</div><div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${bc}"></div></div>${n<p.minC?`<div class="crew-warn">below ${p.minC} min</div>`:''}</div>`;
+  }).join('');
+  document.getElementById('tHead').innerHTML='<tr>'+['Date','Day','Start','End','Charter','Boat','Captain','Crew','Notes'].map(h=>`<th>${h}</th>`).join('')+'</tr>';
+  document.getElementById('tBody').innerHTML=sched.map(s=>{
+    const bc=BOAT_COLORS[s.boat]||'#888';
+    const crewStr=s.crew.map(n=>`<span class="bdg bdg-cr">${n}</span>`).join(' ')||'—';
+    return`<tr><td>${s.date}</td><td>${s.day}</td><td>${s.time}</td><td>${s.end_time}</td><td>${s.charter_type}</td><td><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${bc};margin-right:5px;vertical-align:middle"></span>${s.boat}</td><td>${s.captain==='UNASSIGNED'?'<span class="bdg bdg-un">Unassigned</span>':'<span class="bdg bdg-c">'+s.captain+'</span>'}</td><td>${crewStr}</td><td style="font-size:10px;color:var(--text-dim)">${s.notes}</td></tr>`;
+  }).join('');
+  document.getElementById('results').className='results show';
+  document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// ── EXPORT ────────────────────────────────────────────────────────
+function dlCSV(){
+  const h=['Date','Day','Start Time','End Time','Charter Type','Boat','Duration','Captain','Crew 1','Crew 2','Notes'];
+  const rows=sched.map(s=>[s.date,s.day,s.time,s.end_time,s.charter_type,s.boat,s.duration,s.captain,s.crew[0]||'',s.crew[1]||'',s.notes]);
+  const csv=[h,...rows].map(r=>r.map(v=>'"'+(v||'')+'"').join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=`charter_schedule_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+function copySheets(){
+  const h=['Date','Day','Start Time','End Time','Charter Type','Boat','Duration','Captain','Crew 1','Crew 2','Notes'];
+  const rows=sched.map(s=>[s.date,s.day,s.time,s.end_time,s.charter_type,s.boat,s.duration,s.captain,s.crew[0]||'',s.crew[1]||'',s.notes||'']);
+  navigator.clipboard.writeText([h,...rows].map(r=>r.join('\t')).join('\n')).then(()=>{
+    const el=document.getElementById('copyConfirm');el.style.display='block';
+    setTimeout(()=>el.style.display='none',3000);
+  });
+}
+function showErr(msg){const el=document.getElementById('errorBox');el.textContent=msg;el.className='error-box show';}
+function resetAll(){
+  sched=[];
+  Object.keys(imgs).forEach(b=>clearFile(b));
+  document.getElementById('results').className='results';
+  document.getElementById('progress').className='progress';
+  document.getElementById('errorBox').className='error-box';
+}
+</script>
+</body>
+</html>
