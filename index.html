@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Triton Catamaran Charters — Scheduler</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,600;1,300&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy-deep:   #0d1b2a;
+  --navy-mid:    #1a2f45;
+  --navy-light:  #243d57;
+  --brass:       #c9a84c;
+  --brass-dim:   #9a7c30;
+  --brass-bright:#e2c46a;
+  --rope:        #d4b483;
+  --white:       #ffffff;
+  --white-dim:   #c8d8e8;
+  --teal:        #2abfcf;
+  --teal-dim:    #1a8a96;
+  --red:         #c0392b;
+  --green:       #27ae60;
+  --gold:        #c9a84c;
+  --text:        #ffffff;
+  --text-dim:    #a0b8cc;
+  --border:      rgba(201,168,76,0.18);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--navy-deep);
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  min-height: 100vh;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(201,168,76,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(201,168,76,0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none; z-index: 0;
+}
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: radial-gradient(ellipse at 20% 0%, rgba(42,191,207,0.06) 0%, transparent 60%),
+              radial-gradient(ellipse at 80% 100%, rgba(201,168,76,0.05) 0%, transparent 60%);
+  pointer-events: none; z-index: 0;
+}
+.app { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 48px 24px 80px; }
+
+/* ── HEADER ── */
+.header { margin-bottom: 44px; }
+.header-tag {
+  font-size: 10px; letter-spacing: 0.25em; color: var(--brass);
+  text-transform: uppercase; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 10px;
+}
+.header-tag::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--brass-dim), transparent); max-width: 120px; }
+.header h1 { font-family: 'Fraunces', serif; font-size: 42px; font-weight: 300; color: var(--white); line-height: 1.1; margin-bottom: 10px; }
+.header h1 em { font-style: italic; color: var(--brass); }
+.header p { color: var(--text-dim); font-size: 12px; line-height: 1.7; max-width: 480px; }
+
+/* ── CARDS ── */
+.card {
+  background: rgba(26,47,69,0.7);
+  border: 1px solid var(--border);
+  border-radius: 12px; padding: 22px 24px; margin-bottom: 18px;
+  backdrop-filter: blur(4px);
+}
+.card-label { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--brass); margin-bottom: 14px; }
+
+/* ── API KEY ── */
+.key-row { display: flex; gap: 10px; align-items: center; }
+.key-input {
+  flex: 1; background: rgba(13,27,42,0.8);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 11px 14px; color: var(--text);
+  font-family: 'DM Mono', monospace; font-size: 12px; outline: none;
+  transition: border-color 0.2s;
+}
+.key-input:focus { border-color: var(--brass); }
+.key-input::placeholder { color: var(--text-dim); }
+.key-badge { font-size: 11px; padding: 4px 12px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
+.key-badge.ok { background: rgba(39,174,96,0.15); color: var(--green); border: 1px solid rgba(39,174,96,0.25); }
+.key-badge.no { background: rgba(201,168,76,0.12); color: var(--brass); border: 1px solid rgba(201,168,76,0.2); }
+.key-hint { font-size: 10px; color: var(--text-dim); margin-top: 8px; }
+
+/* ── BOAT ROWS ── */
+.boat-row { display: flex; align-items: center; gap: 14px; padding: 11px 0; border-bottom: 1px solid rgba(201,168,76,0.08); }
+.boat-row:last-child { border-bottom: none; padding-bottom: 0; }
+.boat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 6px currentColor; }
+.boat-name { font-size: 12px; font-weight: 500; color: var(--white); width: 80px; flex-shrink: 0; }
+.clear-btn { font-size: 18px; color: var(--text-dim); background: none; border: none; cursor: pointer; padding: 0 4px; line-height: 1; display: none; }
+.clear-btn:hover { color: var(--red); }
+.clear-btn.visible { display: block; }
+.ical-hint { font-size: 11px; color: var(--text-dim); margin-bottom: 14px; line-height: 1.6; }
+.ical-row { gap: 10px; }
+.ical-input { flex: 1; background: rgba(13,27,42,0.8); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 11px; outline: none; transition: border-color 0.2s; }
+.ical-input:focus { border-color: var(--brass); }
+.ical-input::placeholder { color: var(--text-dim); opacity: 0.5; }
+.ical-input.has-url { border-color: rgba(42,191,207,0.5); }
+.ical-status { font-size: 12px; flex-shrink: 0; width: 18px; text-align: center; }
+.ical-week-row { display: flex; align-items: center; gap: 12px; margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(201,168,76,0.1); }
+.ical-week-label { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); }
+.ical-week-select { background: rgba(13,27,42,0.8); border: 1px solid var(--border); border-radius: 7px; padding: 6px 10px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 11px; outline: none; cursor: pointer; }
+.ical-week-select:focus { border-color: var(--brass); }
+.cors-warning { display:none; background: rgba(192,57,43,0.08); border: 1px solid rgba(192,57,43,0.3); border-radius: 8px; padding: 12px 14px; font-size: 11px; color: #e07060; margin-top: 12px; line-height: 1.6; }
+.cors-warning.show { display: block; }
+
+/* ── OVERRIDES ── */
+.override-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; background: none; border: none; cursor: pointer; padding: 0; font-family: 'DM Mono', monospace; color: var(--text-dim); font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; }
+.override-toggle:hover { color: var(--brass); }
+.override-arrow { transition: transform 0.25s; font-size: 12px; }
+.override-arrow.open { transform: rotate(90deg); }
+.override-body { display: none; margin-top: 16px; }
+.override-body.open { display: block; }
+.override-hint { font-size: 11px; color: var(--text-dim); margin-bottom: 12px; line-height: 1.6; }
+.override-hint strong { color: var(--white); }
+.override-examples { font-size: 10px; color: var(--brass-dim); margin-bottom: 14px; line-height: 1.8; }
+.override-textarea { width: 100%; background: rgba(13,27,42,0.8); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 11px; outline: none; resize: vertical; min-height: 100px; line-height: 1.7; transition: border-color 0.2s; }
+.override-textarea:focus { border-color: var(--brass); }
+.override-textarea::placeholder { color: var(--text-dim); opacity: 0.5; }
+.override-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.override-tag { font-size: 10px; padding: 3px 10px; border-radius: 20px; background: rgba(201,168,76,0.1); border: 1px solid rgba(201,168,76,0.25); color: var(--brass); display: flex; align-items: center; gap: 6px; }
+.override-tag-x { cursor: pointer; opacity: 0.6; }
+.override-tag-x:hover { opacity: 1; color: var(--red); }
+.override-add-row { display: flex; gap: 8px; margin-top: 10px; }
+.override-add-btn { padding: 7px 16px; background: rgba(201,168,76,0.1); border: 1px solid rgba(201,168,76,0.25); border-radius: 7px; color: var(--brass); font-family: 'DM Mono', monospace; font-size: 11px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+.override-add-btn:hover { background: rgba(201,168,76,0.2); }
+
+/* ── RUN BUTTON ── */
+.run-btn {
+  width: 100%; padding: 15px;
+  background: linear-gradient(135deg, var(--brass) 0%, var(--brass-dim) 100%);
+  color: var(--navy-deep); border: none; border-radius: 10px;
+  font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500;
+  letter-spacing: 0.08em; cursor: pointer; transition: all 0.2s; margin-bottom: 20px;
+}
+.run-btn:hover:not(:disabled) { background: linear-gradient(135deg, var(--brass-bright) 0%, var(--brass) 100%); transform: translateY(-1px); box-shadow: 0 6px 24px rgba(201,168,76,0.25); }
+.run-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+/* ── PROGRESS ── */
+.progress { display: none; background: rgba(26,47,69,0.7); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; margin-bottom: 20px; }
+.progress.show { display: block; }
+.prog-label { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--brass); margin-bottom: 14px; }
+.prog-step { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.prog-step:last-child { margin-bottom: 0; }
+.prog-dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(201,168,76,0.15); flex-shrink: 0; transition: background 0.3s; }
+.prog-dot.active { background: var(--brass); box-shadow: 0 0 8px var(--brass); animation: pulse 1.2s ease-in-out infinite; }
+.prog-dot.done { background: var(--green); animation: none; }
+.prog-dot.err { background: var(--red); animation: none; }
+.prog-text { font-size: 12px; color: var(--text-dim); flex: 1; }
+.prog-text.active { color: var(--white); }
+.prog-text.done { color: var(--green); }
+.prog-count { font-size: 10px; color: var(--brass); }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
+
+/* ── ERROR ── */
+.error-box { display: none; background: rgba(192,57,43,0.1); border: 1px solid rgba(192,57,43,0.35); border-radius: 10px; padding: 14px 18px; font-size: 12px; color: #e05a4a; margin-bottom: 20px; }
+.error-box.show { display: block; }
+
+/* ── RESULTS ── */
+.results { display: none; background: rgba(26,47,69,0.6); border: 1px solid rgba(201,168,76,0.25); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+.results.show { display: block; }
+.results-title { font-family: 'Fraunces', serif; font-size: 26px; font-weight: 300; color: var(--white); margin-bottom: 22px; }
+.results-title span { color: var(--brass); font-style: italic; }
+
+/* ── STATS ── */
+.stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 24px; }
+.stat { background: rgba(13,27,42,0.6); border: 1px solid var(--border); border-radius: 8px; padding: 14px; text-align: center; }
+.stat-val { font-family: 'Fraunces', serif; font-size: 28px; font-weight: 300; }
+.stat-val.g { color: var(--green); }
+.stat-val.r { color: var(--red); }
+.stat-val.gold { color: var(--brass); }
+.stat-lbl { font-size: 10px; color: var(--text-dim); margin-top: 3px; letter-spacing: 0.1em; text-transform: uppercase; }
+
+/* ── CREW GRID ── */
+.crew-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(140px,1fr)); gap: 8px; margin-bottom: 24px; }
+.crew-card { background: rgba(13,27,42,0.5); border: 1px solid rgba(201,168,76,0.14); border-radius: 8px; padding: 10px 12px; cursor: pointer; transition: border-color 0.2s, background 0.2s; }
+.crew-card:hover { border-color: rgba(201,168,76,0.4); background: rgba(26,47,69,0.8); }
+.crew-card.expanded { border-color: var(--brass); background: rgba(26,47,69,0.9); }
+.crew-nm { font-size: 12px; font-weight: 500; color: var(--white); display: flex; align-items: center; justify-content: space-between; }
+.crew-nm-arrow { font-size: 10px; color: var(--brass); opacity: 0; transition: opacity 0.2s; }
+.crew-card:hover .crew-nm-arrow, .crew-card.expanded .crew-nm-arrow { opacity: 1; }
+.crew-rl { font-size: 10px; color: var(--text-dim); margin-bottom: 5px; }
+.crew-st { font-size: 11px; color: var(--text-dim); margin-bottom: 5px; }
+.bar-bg { height: 3px; background: rgba(201,168,76,0.1); border-radius: 2px; }
+.bar-fill { height: 3px; border-radius: 2px; }
+.crew-warn { font-size: 10px; color: var(--brass); margin-top: 3px; }
+
+/* ── SHIFT DRAWER ── */
+.shift-drawer { display: none; grid-column: 1 / -1; background: rgba(13,27,42,0.6); border: 1px solid rgba(201,168,76,0.2); border-radius: 10px; padding: 16px; margin-top: 2px; }
+.shift-drawer.open { display: block; }
+.shift-drawer-title { font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--brass); margin-bottom: 12px; }
+.shift-list { display: flex; flex-direction: column; gap: 6px; }
+.shift-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; background: rgba(26,47,69,0.5); font-size: 11px; }
+.shift-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.shift-day { color: var(--text-dim); width: 28px; flex-shrink: 0; }
+.shift-date { color: var(--text-dim); width: 80px; flex-shrink: 0; font-size: 10px; }
+.shift-times { color: var(--white); flex: 1; }
+.shift-boat { font-size: 10px; color: var(--text-dim); }
+.shift-role { font-size: 10px; padding: 2px 7px; border-radius: 10px; flex-shrink: 0; }
+.shift-role.cap { background: rgba(201,168,76,0.15); color: var(--brass); }
+.shift-role.crew { background: rgba(42,191,207,0.12); color: var(--teal); }
+.shift-empty { font-size: 11px; color: var(--text-dim); font-style: italic; }
+.sec-label { font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 10px; }
+
+/* ── TIMELINE ── */
+.timeline-wrap { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 20px; background: rgba(13,27,42,0.5); }
+.tl-nav { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); background: rgba(26,47,69,0.7); }
+.tl-arrow-btn { width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0; background: rgba(201,168,76,0.08); border: 1px solid var(--border); color: var(--text-dim); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; user-select: none; }
+.tl-arrow-btn:hover:not(:disabled) { background: rgba(201,168,76,0.18); border-color: var(--brass); color: var(--brass); }
+.tl-arrow-btn:disabled { opacity: 0.2; cursor: default; }
+.tl-nav-center { text-align: center; flex: 1; padding: 0 16px; }
+.tl-day-name { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 300; color: var(--white); line-height: 1.1; }
+.tl-day-date { font-size: 10px; color: var(--text-dim); letter-spacing: 0.1em; margin-top: 2px; }
+.tl-dots { display: flex; gap: 6px; justify-content: center; margin-top: 9px; }
+.tl-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(201,168,76,0.15); cursor: pointer; transition: background 0.2s; }
+.tl-dot.active { background: var(--brass); box-shadow: 0 0 6px var(--brass); }
+.tl-dot.has { background: rgba(201,168,76,0.3); }
+.tl-scroll { overflow-x: auto; overflow-y: visible; }
+.tl-scroll::-webkit-scrollbar { height: 4px; }
+.tl-scroll::-webkit-scrollbar-track { background: rgba(13,27,42,0.4); }
+.tl-scroll::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.2); border-radius: 2px; }
+.tl-body { display: flex; flex-direction: column; }
+.tl-ruler { display: flex; position: sticky; top: 0; z-index: 8; background: rgba(13,27,42,0.97); border-bottom: 1px solid rgba(201,168,76,0.1); }
+.tl-ruler-spacer { flex-shrink: 0; border-right: 1px solid rgba(201,168,76,0.1); }
+.tl-ruler-hours { display: flex; }
+.tl-hour-tick { flex-shrink: 0; padding: 7px 0 5px 6px; font-size: 9px; color: var(--text-dim); letter-spacing: 0.04em; border-left: 1px solid rgba(201,168,76,0.08); }
+.tl-lane { display: flex; border-bottom: 1px solid rgba(201,168,76,0.07); min-height: 68px; }
+.tl-lane:last-child { border-bottom: none; }
+.tl-lane-lbl { flex-shrink: 0; display: flex; align-items: center; gap: 7px; padding: 0 12px; font-size: 10px; font-weight: 500; color: var(--white); border-right: 1px solid rgba(201,168,76,0.1); background: rgba(13,27,42,0.6); position: sticky; left: 0; z-index: 5; }
+.tl-lbl-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.tl-lane-track { position: relative; flex-shrink: 0; }
+.tl-block { position: absolute; top: 7px; bottom: 7px; border-radius: 6px; padding: 5px 7px; border: 1px solid rgba(0,0,0,0.2); cursor: pointer; overflow: hidden; transition: filter 0.12s, transform 0.12s; display: flex; flex-direction: column; justify-content: center; }
+.tl-block:hover { filter: brightness(1.15); transform: scaleY(1.05); z-index: 20; }
+.tl-b-type { font-size: 9px; font-weight: 500; color: rgba(255,255,255,0.9); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.25; }
+.tl-b-time { font-size: 8px; color: rgba(255,255,255,0.65); margin-top: 1px; white-space: nowrap; }
+.tl-b-staff { font-size: 8px; color: rgba(255,255,255,0.75); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl-legend { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; padding: 10px 16px; border-top: 1px solid rgba(201,168,76,0.08); background: rgba(13,27,42,0.4); }
+.tl-leg-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-dim); }
+.tl-leg-swatch { width: 10px; height: 10px; border-radius: 2px; }
+.tl-hint { margin-left: auto; font-size: 9px; color: rgba(201,168,76,0.2); }
+.tl-empty { padding: 36px 24px; text-align: center; font-size: 12px; color: var(--text-dim); }
+
+/* ── TOOLTIP ── */
+.tl-tip { position: fixed; z-index: 200; background: var(--navy-mid); border: 1px solid rgba(201,168,76,0.3); border-radius: 10px; padding: 13px 15px; pointer-events: none; width: 230px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); display: none; }
+.tl-tip.show { display: block; }
+.tl-tip-boat { font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 5px; }
+.tl-tip-type { font-size: 13px; color: var(--white); margin-bottom: 3px; font-family: 'Fraunces', serif; font-weight: 300; }
+.tl-tip-time { font-size: 11px; color: var(--brass); margin-bottom: 9px; }
+.tl-tip-row { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px; }
+.tl-tip-row .lbl { color: var(--text-dim); }
+.tl-tip-row .val { color: var(--text); text-align: right; max-width: 140px; }
+.tl-tip-note { font-size: 10px; color: var(--brass); margin-top: 7px; padding-top: 7px; border-top: 1px solid rgba(201,168,76,0.15); }
+.tl-tip-pin { font-size: 9px; color: rgba(201,168,76,0.3); margin-top: 6px; }
+
+/* ── DOWNLOADS ── */
+.dl-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.dl-btn { padding: 10px 20px; border-radius: 8px; font-family: 'DM Mono', monospace; font-size: 12px; cursor: pointer; border: none; transition: all 0.2s; letter-spacing: 0.03em; }
+.dl-primary { background: linear-gradient(135deg, var(--brass) 0%, var(--brass-dim) 100%); color: var(--navy-deep); font-weight: 500; }
+.dl-primary:hover { background: linear-gradient(135deg, var(--brass-bright) 0%, var(--brass) 100%); }
+.dl-secondary { background: rgba(201,168,76,0.08); color: var(--text-dim); border: 1px solid var(--border); }
+.dl-secondary:hover { background: rgba(201,168,76,0.15); color: var(--brass); }
+.copy-confirm { display: none; font-size: 11px; color: var(--green); margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <div class="header-tag">Triton Catamaran Charters</div>
+    <h1>Charter<br><em>Scheduler</em></h1>
+    <p>Connect each boat's FareHarbor iCal feed. The scheduler pulls live bookings and builds the optimized crew schedule automatically.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Anthropic API Key</div>
+    <div class="key-row">
+      <input type="password" class="key-input" id="apiKey" placeholder="sk-ant-api03-..." oninput="onKeyInput(this.value)">
+      <span class="key-badge no" id="keyBadge">Not set</span>
+    </div>
+    <div class="key-hint">Saved in your browser automatically. Never shared with anyone except Anthropic.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">FareHarbor iCal Feed URLs</div>
+    <div class="ical-hint">Paste each boat's private subscription URL. Stored in your browser only — never shared.</div>
+    <div id="boatRows">
+      <div class="boat-row ical-row"><div class="boat-dot" style="background:#2abfcf"></div><div class="boat-name">Triton</div><input type="password" class="ical-input" id="ical-Triton" placeholder="webcal://..." oninput="onIcalInput('Triton',this.value)" autocomplete="off"><span class="ical-status" id="is-Triton"></span><button class="clear-btn" id="clr-Triton" onclick="clearIcal('Triton')">×</button></div>
+      <div class="boat-row ical-row"><div class="boat-dot" style="background:#e07fa0"></div><div class="boat-name">Alana</div><input type="password" class="ical-input" id="ical-Alana" placeholder="webcal://..." oninput="onIcalInput('Alana',this.value)" autocomplete="off"><span class="ical-status" id="is-Alana"></span><button class="clear-btn" id="clr-Alana" onclick="clearIcal('Alana')">×</button></div>
+      <div class="boat-row ical-row"><div class="boat-dot" style="background:#a78bfa"></div><div class="boat-name">Athena</div><input type="password" class="ical-input" id="ical-Athena" placeholder="webcal://..." oninput="onIcalInput('Athena',this.value)" autocomplete="off"><span class="ical-status" id="is-Athena"></span><button class="clear-btn" id="clr-Athena" onclick="clearIcal('Athena')">×</button></div>
+      <div class="boat-row ical-row"><div class="boat-dot" style="background:#4dd9c0"></div><div class="boat-name">Malarky</div><input type="password" class="ical-input" id="ical-Malarky" placeholder="webcal://..." oninput="onIcalInput('Malarky',this.value)" autocomplete="off"><span class="ical-status" id="is-Malarky"></span><button class="clear-btn" id="clr-Malarky" onclick="clearIcal('Malarky')">×</button></div>
+      <div class="boat-row ical-row"><div class="boat-dot" style="background:#c9a84c"></div><div class="boat-name">Aquata</div><input type="password" class="ical-input" id="ical-Aquata" placeholder="webcal://..." oninput="onIcalInput('Aquata',this.value)" autocomplete="off"><span class="ical-status" id="is-Aquata"></span><button class="clear-btn" id="clr-Aquata" onclick="clearIcal('Aquata')">×</button></div>
+    </div>
+    <div class="ical-week-row">
+      <span class="ical-week-label">Schedule window</span>
+      <select class="ical-week-select" id="weekRange">
+        <option value="1">Next 1 week</option>
+        <option value="2" selected>Next 2 weeks</option>
+        <option value="3">Next 3 weeks</option>
+        <option value="4">Next 4 weeks</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="card">
+    <button class="override-toggle" onclick="toggleOverride()">
+      <span>Weekly Overrides (optional)</span>
+      <span class="override-arrow" id="overrideArrow">▶</span>
+    </button>
+    <div class="override-body" id="overrideBody">
+      <div class="override-hint" style="margin-top:0">Add <strong>one-time constraints</strong> for this week only. Won't change the permanent scheduling rules.</div>
+      <div class="override-examples">e.g. "Jake has Monday off" · "Galan unavailable all week" · "Will is available Friday only"</div>
+      <textarea class="override-textarea" id="overrideInput" placeholder="Type a constraint and press Add..."></textarea>
+      <div class="override-add-row">
+        <button class="override-add-btn" onclick="addOverrideTag()">+ Add constraint</button>
+        <button class="override-add-btn" onclick="clearOverrides()" style="background:rgba(192,57,43,0.1);border-color:rgba(192,57,43,0.25);color:var(--red)">Clear all</button>
+      </div>
+      <div class="override-tags" id="overrideTags"></div>
+    </div>
+  </div>
+
+  <button class="run-btn" id="runBtn" onclick="run()">Build This Week's Schedule →</button>
+  <div class="progress" id="progress"></div>
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="results" id="results">
+    <div class="results-title">Schedule <span>ready</span></div>
+    <div class="stats-grid" id="statsGrid"></div>
+    <div class="sec-label">Crew workload <span style="font-size:9px;color:var(--brass);margin-left:8px">click a name to see their shifts</span></div>
+    <div class="crew-grid" id="crewGrid"></div>
+    <div class="sec-label" style="margin-bottom:14px">Daily schedule</div>
+    <div class="timeline-wrap">
+      <div class="tl-nav">
+        <button class="tl-arrow-btn" id="tlPrev" onclick="tlNav(-1)">&#8249;</button>
+        <div class="tl-nav-center">
+          <div class="tl-day-name" id="tlDayName">—</div>
+          <div class="tl-day-date" id="tlDayDate">—</div>
+          <div class="tl-dots" id="tlDots"></div>
+        </div>
+        <button class="tl-arrow-btn" id="tlNext" onclick="tlNav(1)">&#8250;</button>
+      </div>
+      <div class="tl-scroll" id="tlScroll">
+        <div class="tl-body" id="tlBody"></div>
+      </div>
+      <div class="tl-legend" id="tlLegend"></div>
+    </div>
+    <div class="dl-row">
+      <button class="dl-btn dl-primary" onclick="dlCSV()">Download CSV (Excel)</button>
+      <button class="dl-btn dl-secondary" onclick="copySheets()">Copy for Google Sheets</button>
+      <button class="dl-btn dl-secondary" onclick="resetAll()">New Schedule</button>
+    </div>
+    <div class="copy-confirm" id="copyConfirm">Copied — paste directly into Google Sheets.</div>
+  </div>
+</div>
+
+<div class="tl-tip" id="tlTip"></div>
+
+<script>
+// ── CONFIG ───────────────────────────────────────────────────────
+const CREW = [
+  // Captains
+  { name:"Trevor",  role:"Captain", triton:true,  otherBoats:true,  daysOff:["Tue","Wed"], maxHrs:40, minC:2, tritonPrimary:true },
+  { name:"Mitch",   role:"Captain", triton:true,  otherBoats:true,  daysOff:["Mon","Tue"], maxHrs:40, minC:2, tritonPrimary:true },
+  { name:"Galan",   role:"Captain", triton:true,  otherBoats:true,  daysOff:[],            maxHrs:40, minC:2 },
+  { name:"Charlie", role:"Captain", triton:true,  otherBoats:true,  daysOff:[],            maxHrs:40, minC:2, school:true },
+  { name:"Becca",   role:"Captain", triton:false, otherBoats:true,  daysOff:[],            maxHrs:40, minC:2 },
+  { name:"Tess",    role:"Captain", triton:false, otherBoats:true,  daysOff:[],            maxHrs:40, minC:2 },
+  // Crew
+  { name:"Jake",    role:"Crew",    triton:true,  otherBoats:true,  daysOff:[],            maxHrs:40, minC:2, tritonPrimary:true },
+  { name:"Mitchell",role:"Crew",    triton:true,  otherBoats:true,  daysOff:[],            maxHrs:40, minC:2, tritonPrimary:true },
+  { name:"Will",    role:"Crew",    triton:false, otherBoats:true,  daysOff:[],            maxHrs:40, minC:2 },
+  { name:"Jason",   role:"Crew",    triton:false, otherBoats:true,  daysOff:[],            maxHrs:40, minC:2 },
+  { name:"Angel",   role:"Crew",    triton:false, otherBoats:true,  daysOff:[],            maxHrs:40, minC:2 },
+];
+
+const BOAT_STAFF  = { Triton:{cap:1,crew:2}, Athena:{cap:1,crew:1}, Malarky:{cap:1,crew:1}, Alana:{cap:1,crew:1}, Aquata:{cap:1,crew:0} };
+const BOAT_COLORS = { Triton:"#2abfcf", Alana:"#e07fa0", Athena:"#a78bfa", Malarky:"#4dd9c0", Aquata:"#c9a84c" };
+const BOAT_ORDER  = ["Triton","Alana","Athena","Malarky","Aquata"];
+const WEEKDAYS    = ["Mon","Tue","Wed","Thu","Fri"];
+
+const TL_LABEL_W = 76;
+const TL_PX_HR   = 96;
+const TL_PAD_H   = 1;
+
+// ── STATE ────────────────────────────────────────────────────────
+const icalUrls = {}; // boat -> url
+let sched = [], overrides = [], tlDays = [], tlDayIdx = 0, expandedCrew = null;
+let tipPinned = false;
+
+// ── INIT ─────────────────────────────────────────────────────────
+window.onload = () => {
+  const k = localStorage.getItem('tcc_api_key') || '';
+  if (k) { document.getElementById('apiKey').value = k; updateBadge(k); }
+  // Restore saved iCal URLs
+  ['Triton','Alana','Athena','Malarky','Aquata'].forEach(boat => {
+    const saved = localStorage.getItem('tcc_ical_'+boat);
+    if (saved) { icalUrls[boat]=saved; setIcalUI(boat, saved); }
+  });
+  document.addEventListener('keydown', e => {
+    if (!document.getElementById('results').classList.contains('show')) return;
+    if (e.key === 'ArrowLeft')  { e.preventDefault(); tlNav(-1); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); tlNav(1); }
+  });
+  document.addEventListener('click', e => {
+    if (tipPinned && !e.target.closest('.tl-block')) { tipPinned = false; hideTip(); }
+  });
+};
+
+// ── API KEY ──────────────────────────────────────────────────────
+function onKeyInput(v) { localStorage.setItem('tcc_api_key', v); updateBadge(v); }
+function updateBadge(v) {
+  const el = document.getElementById('keyBadge');
+  if (v && v.trim().length > 20) { el.textContent='Key saved'; el.className='key-badge ok'; }
+  else { el.textContent='Not set'; el.className='key-badge no'; }
+}
+
+// ── ICAL URLS ────────────────────────────────────────────────────
+function onIcalInput(boat, val) {
+  const v = val.trim();
+  if (v.length > 10) {
+    icalUrls[boat] = v;
+    localStorage.setItem('tcc_ical_'+boat, v);
+    setIcalUI(boat, v);
+  } else {
+    delete icalUrls[boat];
+    localStorage.removeItem('tcc_ical_'+boat);
+    document.getElementById('is-'+boat).textContent = '';
+    document.getElementById('ical-'+boat).classList.remove('has-url');
+    document.getElementById('clr-'+boat).className = 'clear-btn';
+  }
+}
+function setIcalUI(boat, url) {
+  const inp = document.getElementById('ical-'+boat);
+  if (inp && !inp.value) inp.value = url;
+  document.getElementById('is-'+boat).textContent = '✓';
+  document.getElementById('is-'+boat).style.color = 'var(--teal)';
+  inp.classList.add('has-url');
+  document.getElementById('clr-'+boat).className = 'clear-btn visible';
+}
+function clearIcal(boat) {
+  delete icalUrls[boat];
+  localStorage.removeItem('tcc_ical_'+boat);
+  const inp = document.getElementById('ical-'+boat);
+  if (inp) inp.value = '';
+  inp.classList.remove('has-url');
+  document.getElementById('is-'+boat).textContent = '';
+  document.getElementById('clr-'+boat).className = 'clear-btn';
+}
+
+// ── OVERRIDES ────────────────────────────────────────────────────
+function toggleOverride() {
+  const b = document.getElementById('overrideBody'), a = document.getElementById('overrideArrow');
+  const open = b.classList.contains('open');
+  b.classList.toggle('open', !open); a.classList.toggle('open', !open);
+}
+function addOverrideTag() {
+  const ta = document.getElementById('overrideInput');
+  ta.value.split('\n').map(l=>l.trim()).filter(Boolean).forEach(l=>{ if(!overrides.includes(l)) overrides.push(l); });
+  ta.value=''; renderOverrideTags();
+}
+function removeOverride(i) { overrides.splice(i,1); renderOverrideTags(); }
+function clearOverrides() { overrides=[]; document.getElementById('overrideInput').value=''; renderOverrideTags(); }
+function renderOverrideTags() {
+  document.getElementById('overrideTags').innerHTML = overrides.map((o,i)=>
+    `<div class="override-tag">${o}<span class="override-tag-x" onclick="removeOverride(${i})">✕</span></div>`
+  ).join('');
+}
+
+// ── PROGRESS ────────────────────────────────────────────────────
+function initProg(labels) {
+  const el = document.getElementById('progress');
+  el.innerHTML = '<div class="prog-label">Processing</div>' +
+    labels.map((l,i)=>`<div class="prog-step"><div class="prog-dot" id="pd${i}"></div><div class="prog-text" id="pt${i}">${l}</div><div class="prog-count" id="pc${i}"></div></div>`).join('');
+  el.className = 'progress show';
+}
+function setP(i, state, cnt='') {
+  document.getElementById('pd'+i).className = 'prog-dot '+state;
+  document.getElementById('pt'+i).className = 'prog-text '+state;
+  if (cnt) document.getElementById('pc'+i).textContent = cnt;
+}
+
+// ── CLAUDE API ───────────────────────────────────────────────────
+async function callClaude(messages, maxT=1500) {
+  const key = document.getElementById('apiKey').value.trim();
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body: JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:maxT, messages })
+  });
+  if (!r.ok) { const e=await r.json(); throw new Error(e.error?.message||'API error '+r.status); }
+  const d = await r.json();
+  return d.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+}
+
+// ── ICAL FETCH & PARSE ───────────────────────────────────────────
+async function fetchIcal(boat, rawUrl) {
+  // webcal:// -> https://
+  const url = rawUrl.replace(/^webcal:\/\//i, 'https://');
+  let text;
+  try {
+    const resp = await fetch(url, { mode: 'cors' });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    text = await resp.text();
+  } catch(e) {
+    // CORS blocked — surface a clear message
+    const msg = e.message||'';
+    if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('CORS')) {
+      throw { cors: true, boat };
+    }
+    throw new Error(`Could not fetch ${boat} feed: ${e.message}`);
+  }
+  return parseIcal(text, boat);
+}
+
+function parseIcal(text, boat) {
+  const events = [];
+  const blocks = text.split('BEGIN:VEVENT');
+  const weeksAhead = parseInt(document.getElementById('weekRange').value) || 2;
+  const now = new Date();
+  const cutoff = new Date(now.getTime() + weeksAhead * 7 * 24 * 60 * 60 * 1000);
+  const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  for (let i = 1; i < blocks.length; i++) {
+    const block = blocks[i];
+    const dtstart = block.match(/DTSTART[^:]*:(\d{8}T\d{6})/)?.[1]
+                 || block.match(/DTSTART[^:]*:(\d{8})/)?.[1];
+    const dtend   = block.match(/DTEND[^:]*:(\d{8}T\d{6})/)?.[1]
+                 || block.match(/DTEND[^:]*:(\d{8})/)?.[1];
+    const summary = (block.match(/SUMMARY:(.+)/)?.[1] || '').replace(/\\,/g,',').trim();
+    if (!dtstart || !summary) continue;
+
+    // Parse date
+    const yr=+dtstart.slice(0,4), mo=+dtstart.slice(4,6)-1, dy=+dtstart.slice(6,8);
+    const hr=dtstart.length>8?+dtstart.slice(9,11):0;
+    const mn=dtstart.length>8?+dtstart.slice(11,13):0;
+    const startDate = new Date(yr,mo,dy,hr,mn);
+
+    // Filter to window
+    if (startDate < now || startDate > cutoff) continue;
+
+    // Duration
+    let dur = 2.5;
+    if (dtend) {
+      const ehr=+dtend.slice(9,11)||0, emn=+dtend.slice(11,13)||0;
+      const dyrE=+dtend.slice(0,4), moE=+dtend.slice(4,6)-1, dyE=+dtend.slice(6,8);
+      const endDate = new Date(dyrE,moE,dyE,ehr,emn);
+      dur = (endDate - startDate) / 3600000;
+      dur = Math.round(dur * 2) / 2; // round to nearest 0.5
+    } else {
+      // Guess from summary
+      const dm = summary.match(/(\d+(?:\.\d+)?)\s*[Hh]our/);
+      if (dm) dur = parseFloat(dm[1]);
+    }
+
+    // Charter type label
+    let charter_type = summary;
+    if (/public charter|harbor cruise|brunch cruise/i.test(summary)) {
+      charter_type = 'Public Charter';
+    }
+
+    // Format
+    const dateStr = `${yr}-${String(mo+1).padStart(2,'0')}-${String(dy).padStart(2,'0')}`;
+    const dayName = DAYS[startDate.getDay()];
+    const timeStr = fmtT(hr*60+mn);
+
+    events.push({ date: dateStr, day: dayName, time: timeStr, charter_type, boat, duration_hrs: dur });
+  }
+
+  return events;
+}
+
+// ── TIME UTILS ───────────────────────────────────────────────────
+function parseT(t) {
+  try {
+    const [time,ap] = t.trim().split(' ');
+    let [h,m] = time.split(':').map(Number);
+    if (ap==='PM'&&h!==12) h+=12;
+    if (ap==='AM'&&h===12) h=0;
+    return h*60+m;
+  } catch { return 0; }
+}
+function fmtT(mins) {
+  let h=Math.floor(mins/60)%24, m=mins%60;
+  const ap=h>=12?'PM':'AM'; h=h%12||12;
+  return `${h}:${String(m).padStart(2,'0')} ${ap}`;
+}
+
+// ── SCHEDULE ─────────────────────────────────────────────────────
+function parseOverrides(list) {
+  const result={};
+  const DM={monday:'Mon',tuesday:'Tue',wednesday:'Wed',thursday:'Thu',friday:'Fri',saturday:'Sat',sunday:'Sun',
+             mon:'Mon',tue:'Tue',wed:'Wed',thu:'Thu',fri:'Fri',sat:'Sat',sun:'Sun'};
+  list.forEach(raw=>{
+    const txt=raw.toLowerCase();
+    const m=CREW.find(c=>txt.includes(c.name.toLowerCase())); if(!m) return;
+    if(!result[m.name]) result[m.name]={blockedDays:new Set(),availableOnly:null};
+    const r=result[m.name];
+    if(txt.includes('all week')||txt.includes('entire week')){
+      ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(d=>r.blockedDays.add(d)); return;
+    }
+    const fdays=[]; Object.keys(DM).forEach(k=>{if(txt.includes(k))fdays.push(DM[k]);});
+    if(txt.includes('available')&&txt.includes('only')&&fdays.length){r.availableOnly=new Set(fdays);return;}
+    if(fdays.length&&(txt.includes('off')||txt.includes('unavailable')||txt.includes("can't")||txt.includes('cannot')||txt.includes('not available')))
+      fdays.forEach(d=>r.blockedDays.add(d));
+  });
+  return result;
+}
+
+function canWorkBoat(p, boat) {
+  if (boat === 'Triton') return p.triton;
+  return p.otherBoats;
+}
+
+function canWork(p, day, time, dur, boat, om) {
+  if (p.daysOff.includes(day)) return false;
+  if (!canWorkBoat(p, boat)) return false;
+  // Charlie school constraint: weekdays must end by 4pm
+  if (p.school && WEEKDAYS.includes(day) && (parseT(time)+dur*60) > 960) return false;
+  if (om && om[p.name]) {
+    const ov = om[p.name];
+    if (ov.blockedDays.has(day)) return false;
+    if (ov.availableOnly && !ov.availableOnly.has(day)) return false;
+  }
+  return true;
+}
+
+function buildSched(charters, overrideList) {
+  const hrs={}, cnt={}, workedDays={};
+  CREW.forEach(c=>{ hrs[c.name]=0; cnt[c.name]=0; workedDays[c.name]=new Set(); });
+
+  const om = parseOverrides(overrideList);
+
+  // Collect all days in the schedule window
+  const allDays = [...new Set(charters.map(c=>c.day))];
+  const weekdaySet = new Set(allDays.filter(d=>WEEKDAYS.includes(d)));
+
+  // Track per-day per-boat captain/crew continuity
+  const dbc={}, dbi={}, dbcs={}, dbcp={};
+  charters.forEach(ch=>{ const k=ch.date+'|'+ch.boat; dbc[k]=(dbc[k]||0)+1; });
+
+  // How many weekdays can a person work before hitting the "2 days off" target?
+  function weekdaysWorked(name) {
+    return [...workedDays[name]].filter(d=>WEEKDAYS.includes(d)).length;
+  }
+  function hasEnoughWeekdaysOff(name) {
+    const worked = weekdaysWorked(name);
+    return (weekdaySet.size - worked) >= 2; // still has 2 off
+  }
+  function hasMinWeekdayOff(name) {
+    const worked = weekdaysWorked(name);
+    return (weekdaySet.size - worked) >= 1; // at least 1 remaining off
+  }
+
+  // soft 40h check
+  function under40(name, dur) { return hrs[name] + dur <= 40; }
+
+  // Captain pool for other boats: all captains sorted by hours (even distribution)
+  function otherBoatCaptainPool() {
+    return CREW.filter(c=>c.role==='Captain'&&c.otherBoats)
+      .sort((a,b)=> hrs[a.name]-hrs[b.name] || cnt[a.name]-cnt[b.name]);
+  }
+
+  return charters.map(ch => {
+    const {date,day,time,charter_type,boat,duration_hrs:dur} = ch;
+    const staff = BOAT_STAFF[boat] || {cap:1,crew:0};
+    const k = date+'|'+boat;
+    const total = dbc[k]||1, idx = dbi[k]||0;
+    dbi[k] = idx+1;
+    const split = total >= 4, slot = split && idx >= Math.floor(total/2) ? 1 : 0;
+    if (!dbcs[k]) dbcs[k]=[];
+    if (!dbcp[k]) dbcp[k]=[];
+
+    // ── ASSIGN CAPTAIN ──────────────────────────────────────────
+    let cap = null;
+
+    // Re-use same slot captain if possible
+    if (dbcs[k][slot]) {
+      const p = CREW.find(x=>x.name===dbcs[k][slot]);
+      if (p && canWork(p,day,time,dur,boat,om) && hrs[p.name]+dur<=48) cap = dbcs[k][slot];
+    }
+
+    if (!cap) {
+      const used = new Set(dbcs[k].filter(Boolean));
+
+      if (boat === 'Triton') {
+        // ── TRITON: hierarchy Trevor→Mitch→Galan→Charlie ──
+        // Pass 1: prefer those with 40h headroom + day-off budget
+        const tritonOrder = ['Trevor','Mitch','Galan','Charlie'];
+        for (const n of tritonOrder) {
+          if (used.has(n)) continue;
+          const p = CREW.find(x=>x.name===n);
+          if (!p||!canWork(p,day,time,dur,boat,om)) continue;
+          if (under40(p.name,dur) && hasMinWeekdayOff(p.name)) { cap=n; break; }
+        }
+        // Pass 2: allow over 40h but respect day-off
+        if (!cap) for (const n of tritonOrder) {
+          if (used.has(n)) continue;
+          const p = CREW.find(x=>x.name===n);
+          if (!p||!canWork(p,day,time,dur,boat,om)) continue;
+          if (hrs[p.name]+dur<=48 && hasMinWeekdayOff(p.name)) { cap=n; break; }
+        }
+        // Pass 3: last resort, ignore day-off soft rule
+        if (!cap) for (const n of tritonOrder) {
+          const p = CREW.find(x=>x.name===n);
+          if (p&&canWork(p,day,time,dur,boat,om)&&hrs[p.name]+dur<=48) { cap=p.name; break; }
+        }
+
+      } else {
+        // ── OTHER BOATS: even distribution by hours, no hierarchy ──
+        const pool = otherBoatCaptainPool().filter(p=>!used.has(p.name));
+        // Pass 1: under 40h + day-off budget
+        for (const p of pool) {
+          if (!canWork(p,day,time,dur,boat,om)) continue;
+          if (under40(p.name,dur) && hasMinWeekdayOff(p.name)) { cap=p.name; break; }
+        }
+        // Pass 2: allow over 40h, respect day-off
+        if (!cap) for (const p of pool) {
+          if (!canWork(p,day,time,dur,boat,om)) continue;
+          if (hrs[p.name]+dur<=48 && hasMinWeekdayOff(p.name)) { cap=p.name; break; }
+        }
+        // Pass 3: last resort
+        if (!cap) for (const p of pool) {
+          if (canWork(p,day,time,dur,boat,om)&&hrs[p.name]+dur<=48) { cap=p.name; break; }
+        }
+      }
+
+      if (cap) { while(dbcs[k].length<=slot) dbcs[k].push(null); dbcs[k][slot]=cap; }
+    }
+
+    if (cap) {
+      hrs[cap]+=dur; cnt[cap]+=1; workedDays[cap].add(day);
+    }
+
+    // ── ASSIGN CREW ─────────────────────────────────────────────
+    const crewA=[];
+    if (staff.crew > 0) {
+      // Re-use already assigned crew for this boat-day
+      for (const n of dbcp[k]) {
+        if (crewA.length>=staff.crew) break;
+        const p=CREW.find(x=>x.name===n);
+        if (p&&canWork(p,day,time,dur,boat,om)&&hrs[p.name]+dur<=48) {
+          crewA.push(n); hrs[n]+=dur; cnt[n]+=1; workedDays[n].add(day);
+        }
+      }
+
+      if (crewA.length < staff.crew) {
+        const crewM = CREW.filter(c=>c.role==='Crew');
+        let pool;
+
+        if (boat==='Triton') {
+          // Jake and Mitchell are Triton-primary, prioritize them
+          const jake=crewM.find(c=>c.name==='Jake');
+          const mitchell=crewM.find(c=>c.name==='Mitchell');
+          const others=crewM.filter(c=>c.name!=='Jake'&&c.name!=='Mitchell'&&!dbcp[k].includes(c.name))
+            .sort((a,b)=>cnt[a.name]-cnt[b.name]||hrs[a.name]-hrs[b.name]);
+          pool=[
+            !dbcp[k].includes('Jake')?jake:null,
+            !dbcp[k].includes('Mitchell')?mitchell:null,
+            ...others
+          ].filter(Boolean);
+        } else {
+          // For other boats: Jake and Mitchell can work but not primary
+          // Sort by hours for even distribution; push Jake/Mitchell to back
+          const primaryCrew=crewM.filter(c=>c.name!=='Jake'&&c.name!=='Mitchell'&&!dbcp[k].includes(c.name))
+            .sort((a,b)=>cnt[a.name]-cnt[b.name]||hrs[a.name]-hrs[b.name]);
+          const flexCrew=crewM.filter(c=>(c.name==='Jake'||c.name==='Mitchell')&&!dbcp[k].includes(c.name))
+            .sort((a,b)=>cnt[a.name]-cnt[b.name]||hrs[a.name]-hrs[b.name]);
+          pool=[...primaryCrew,...flexCrew];
+        }
+
+        // Pass 1: under 40h + day-off budget
+        for (const p of pool) {
+          if (crewA.length>=staff.crew) break;
+          if (!canWork(p,day,time,dur,boat,om)) continue;
+          if (!under40(p.name,dur) || !hasMinWeekdayOff(p.name)) continue;
+          crewA.push(p.name); hrs[p.name]+=dur; cnt[p.name]+=1; workedDays[p.name].add(day);
+          if (!dbcp[k].includes(p.name)) dbcp[k].push(p.name);
+        }
+        // Pass 2: allow over 40h, respect day-off
+        if (crewA.length < staff.crew) for (const p of pool) {
+          if (crewA.length>=staff.crew) break;
+          if (crewA.includes(p.name)||!canWork(p,day,time,dur,boat,om)) continue;
+          if (hrs[p.name]+dur>48||!hasMinWeekdayOff(p.name)) continue;
+          crewA.push(p.name); hrs[p.name]+=dur; cnt[p.name]+=1; workedDays[p.name].add(day);
+          if (!dbcp[k].includes(p.name)) dbcp[k].push(p.name);
+        }
+        // Pass 3: last resort, ignore day-off soft rule
+        if (crewA.length < staff.crew) for (const p of pool) {
+          if (crewA.length>=staff.crew) break;
+          if (crewA.includes(p.name)||!canWork(p,day,time,dur,boat,om)) continue;
+          crewA.push(p.name); hrs[p.name]+=dur; cnt[p.name]+=1; workedDays[p.name].add(day);
+          if (!dbcp[k].includes(p.name)) dbcp[k].push(p.name);
+        }
+      }
+    }
+
+    const endT = fmtT(parseT(time)+dur*60);
+    let notes = '';
+    if (!cap) notes='No captain available';
+    if (crewA.length<staff.crew) notes+=(notes?' — ':'')+`Need ${staff.crew-crewA.length} more crew`;
+    if (split) notes=(notes?notes+' · ':'')+(slot===0?'Shift 1':'Shift 2');
+    return {date,day,time,end_time:endT,charter_type,boat,duration:`${dur}hr`,captain:cap||'UNASSIGNED',crew:crewA,notes};
+  });
+}
+
+// ── RUN ──────────────────────────────────────────────────────────
+async function run() {
+  const key=document.getElementById('apiKey').value.trim();
+  if (!key||key.length<20) { showErr('Please enter your Anthropic API key first.'); return; }
+  const boats=Object.keys(icalUrls);
+  if (!boats.length) { showErr('Please paste at least one FareHarbor iCal URL.'); return; }
+  const ta=document.getElementById('overrideInput');
+  if (ta.value.trim()) { ta.value.split('\n').map(l=>l.trim()).filter(Boolean).forEach(l=>{if(!overrides.includes(l))overrides.push(l);}); ta.value=''; renderOverrideTags(); }
+  document.getElementById('runBtn').disabled=true;
+  document.getElementById('runBtn').textContent='Building schedule...';
+  document.getElementById('results').className='results';
+  document.getElementById('errorBox').className='error-box';
+  sched=[]; expandedCrew=null; tlDays=[]; tlDayIdx=0;
+  initProg([...boats.map(b=>`Fetching ${b} calendar`),'Building optimized schedule']);
+  try {
+    let all=[];
+    for (let i=0;i<boats.length;i++) {
+      setP(i,'active');
+      const boat=boats[i];
+      try {
+        const events = await fetchIcal(boat, icalUrls[boat]);
+        all=[...all,...events];
+        setP(i,'done',`${events.length} charters`);
+        document.getElementById('is-'+boat).textContent='✓';
+        document.getElementById('is-'+boat).style.color='var(--green)';
+      } catch(e) {
+        if (e.cors) {
+          setP(i,'err','CORS blocked');
+          showCorsWarning();
+          document.getElementById('runBtn').disabled=false;
+          document.getElementById('runBtn').textContent="Build This Week's Schedule →";
+          return;
+        }
+        throw e;
+      }
+    }
+    all.sort((a,b)=>a.date.localeCompare(b.date)||parseT(a.time)-parseT(b.time));
+    setP(boats.length,'active');
+    sched=buildSched(all,overrides);
+    setP(boats.length,'done',`${sched.length} assigned`);
+    tlDays=[...new Set(sched.map(s=>s.date))].sort();
+    tlDayIdx=0;
+    renderResults();
+  } catch(e) { showErr('Error: '+e.message); }
+  document.getElementById('runBtn').disabled=false;
+  document.getElementById('runBtn').textContent="Build This Week's Schedule →";
+}
+
+function showCorsWarning() {
+  const el = document.getElementById('errorBox');
+  el.innerHTML = `<strong>CORS blocked</strong> — FareHarbor's server is blocking direct browser requests to the iCal feed. This is a common restriction. To fix it we'll need a small proxy. Let Charlie know so the proxy can be set up.`;
+  el.className = 'error-box show';
+}
+
+// ── RENDER RESULTS ───────────────────────────────────────────────
+function renderResults() {
+  const unassigned=sched.filter(s=>s.captain==='UNASSIGNED').length;
+  const hrs={},cnt={};
+  CREW.forEach(c=>{hrs[c.name]=0;cnt[c.name]=0;});
+  sched.forEach(s=>{
+    if(s.captain&&s.captain!=='UNASSIGNED'){hrs[s.captain]=(hrs[s.captain]||0)+parseFloat(s.duration);cnt[s.captain]=(cnt[s.captain]||0)+1;}
+    s.crew.forEach(m=>{hrs[m]=(hrs[m]||0)+parseFloat(s.duration);cnt[m]=(cnt[m]||0)+1;});
+  });
+  const avgH=Math.round(Object.values(hrs).reduce((a,b)=>a+b,0)/CREW.length);
+  document.getElementById('statsGrid').innerHTML=`
+    <div class="stat"><div class="stat-val">${sched.length}</div><div class="stat-lbl">Charters</div></div>
+    <div class="stat"><div class="stat-val">${CREW.length}</div><div class="stat-lbl">Staff</div></div>
+    <div class="stat"><div class="stat-val ${unassigned>0?'r':'g'}">${unassigned}</div><div class="stat-lbl">Unassigned</div></div>
+    <div class="stat"><div class="stat-val gold">${avgH}h</div><div class="stat-lbl">Avg hrs</div></div>`;
+  renderCrewGrid(hrs,cnt);
+  renderTimeline();
+  document.getElementById('results').className='results show';
+  document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// ── CREW GRID ────────────────────────────────────────────────────
+function renderCrewGrid(hrs,cnt) {
+  let html='';
+  CREW.forEach(p=>{
+    const h=hrs[p.name]||0, n=cnt[p.name]||0;
+    const pct=Math.min(Math.round(h/40*100),100);
+    const bc=h>40?'#c0392b':h>30?'#c9a84c':'#27ae60';
+    const isExp=expandedCrew===p.name;
+    html+=`<div class="crew-card${isExp?' expanded':''}" onclick="toggleCrewShifts('${p.name}')" id="cc-${p.name}">
+      <div class="crew-nm">${p.name}<span class="crew-nm-arrow">${isExp?'▲':'▼'}</span></div>
+      <div class="crew-rl">${p.role}</div>
+      <div class="crew-st">${n} charters · ${h}h</div>
+      <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${bc}"></div></div>
+      ${n<p.minC?`<div class="crew-warn">below ${p.minC} min</div>`:''}
+    </div>
+    <div class="shift-drawer${isExp?' open':''}" id="sd-${p.name}">
+      <div class="shift-drawer-title">${p.name}'s shifts this week</div>
+      <div class="shift-list">${buildShiftList(p.name)}</div>
+    </div>`;
+  });
+  document.getElementById('crewGrid').innerHTML=html;
+}
+function buildShiftList(name) {
+  const sh=sched.filter(s=>s.captain===name||s.crew.includes(name));
+  if (!sh.length) return '<div class="shift-empty">No shifts assigned this week.</div>';
+  return sh.map(s=>{
+    const bc=BOAT_COLORS[s.boat]||'#888';
+    const isCap=s.captain===name;
+    return `<div class="shift-item">
+      <div class="shift-dot" style="background:${bc}"></div>
+      <div class="shift-day">${s.day}</div>
+      <div class="shift-date">${s.date}</div>
+      <div class="shift-times">${s.time} – ${s.end_time} · ${s.duration}</div>
+      <div class="shift-boat">${s.boat}</div>
+      <div class="shift-role ${isCap?'cap':'crew'}">${isCap?'Captain':'Crew'}</div>
+    </div>`;
+  }).join('');
+}
+function toggleCrewShifts(name) {
+  const was=expandedCrew===name;
+  expandedCrew=was?null:name;
+  const hrs={},cnt={};
+  CREW.forEach(c=>{hrs[c.name]=0;cnt[c.name]=0;});
+  sched.forEach(s=>{
+    if(s.captain&&s.captain!=='UNASSIGNED'){hrs[s.captain]+=parseFloat(s.duration);cnt[s.captain]++;}
+    s.crew.forEach(m=>{hrs[m]+=parseFloat(s.duration);cnt[m]++;});
+  });
+  renderCrewGrid(hrs,cnt);
+  if (!was) setTimeout(()=>{const el=document.getElementById('sd-'+name);if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});},50);
+}
+
+// ── TIMELINE ─────────────────────────────────────────────────────
+function tlNav(dir) {
+  if (!tlDays.length) return;
+  tlDayIdx=Math.max(0,Math.min(tlDays.length-1,tlDayIdx+dir));
+  renderTimeline();
+}
+function renderTimeline() {
+  if (!tlDays.length) return;
+  const date=tlDays[tlDayIdx];
+  const dayCharters=sched.filter(s=>s.date===date);
+  const d=new Date(date+'T12:00:00');
+  const DNAMES=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const MNAMES=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('tlDayName').textContent=DNAMES[d.getDay()];
+  document.getElementById('tlDayDate').textContent=`${MNAMES[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  document.getElementById('tlPrev').disabled=tlDayIdx===0;
+  document.getElementById('tlNext').disabled=tlDayIdx===tlDays.length-1;
+  document.getElementById('tlDots').innerHTML=tlDays.map((dd,i)=>{
+    const has=sched.some(s=>s.date===dd);
+    return `<div class="tl-dot${i===tlDayIdx?' active':has?' has':''}" title="${dd}" onclick="tlDayIdx=${i};renderTimeline()" style="cursor:pointer"></div>`;
+  }).join('');
+  const body=document.getElementById('tlBody');
+  if (!dayCharters.length) { body.innerHTML='<div class="tl-empty">No charters scheduled this day.</div>'; document.getElementById('tlLegend').innerHTML=''; return; }
+  let minH=24,maxH=0;
+  dayCharters.forEach(s=>{ const sm=parseT(s.time)/60,em=sm+parseFloat(s.duration); if(sm<minH)minH=sm; if(em>maxH)maxH=em; });
+  minH=Math.max(0,Math.floor(minH)-TL_PAD_H);
+  maxH=Math.min(24,Math.ceil(maxH)+TL_PAD_H);
+  const spanH=maxH-minH, trackW=spanH*TL_PX_HR;
+  const boatsToday=BOAT_ORDER.filter(b=>dayCharters.some(s=>s.boat===b));
+  let rulerHtml='';
+  for (let h=minH;h<=maxH;h++) {
+    const lbl=h===0?'12am':h<12?`${h}am`:h===12?'12pm':`${h-12}pm`;
+    rulerHtml+=`<div class="tl-hour-tick" style="width:${TL_PX_HR}px">${lbl}</div>`;
+  }
+  let lanesHtml='';
+  boatsToday.forEach(boat=>{
+    const color=BOAT_COLORS[boat];
+    const bc=dayCharters.filter(s=>s.boat===boat);
+    const gridBg=`repeating-linear-gradient(90deg,rgba(201,168,76,0.04) 0px,rgba(201,168,76,0.04) 1px,transparent 1px,transparent ${TL_PX_HR}px)`;
+    let blocks='';
+    bc.forEach(s=>{
+      const startMins=parseT(s.time),durH=parseFloat(s.duration);
+      const leftPx=((startMins/60)-minH)*TL_PX_HR,wPx=Math.max(36,durH*TL_PX_HR-3);
+      const captain=s.captain==='UNASSIGNED'?'⚠ Unassigned':s.captain;
+      const crewTxt=s.crew.length?s.crew.join(', '):(BOAT_STAFF[boat]?.crew>0?'⚠ No crew':'');
+      const warn=s.captain==='UNASSIGNED'||(BOAT_STAFF[boat]?.crew>0&&!s.crew.length);
+      const blockBg=warn?`repeating-linear-gradient(135deg,${color}dd 0px,${color}dd 5px,${color}99 5px,${color}99 10px)`:color;
+      const td=encodeURIComponent(JSON.stringify({boat:s.boat,type:s.charter_type,time:s.time,end:s.end_time,dur:s.duration,captain,crew:s.crew.join(', ')||'—',notes:s.notes}));
+      blocks+=`<div class="tl-block" style="left:${leftPx}px;width:${wPx}px;background:${blockBg};"
+        onmouseenter="showTip(event,'${td}')" onmouseleave="hideTip()" onclick="clickBlock(event,'${td}')">
+        <div class="tl-b-type">${s.charter_type}</div>
+        <div class="tl-b-time">${s.time}–${s.end_time}</div>
+        <div class="tl-b-staff">${captain}${crewTxt?', '+crewTxt:''}</div>
+      </div>`;
+    });
+    lanesHtml+=`<div class="tl-lane">
+      <div class="tl-lane-lbl" style="width:${TL_LABEL_W}px"><div class="tl-lbl-dot" style="background:${color}"></div>${boat}</div>
+      <div class="tl-lane-track" style="width:${trackW}px;background:${gridBg};position:relative;">${blocks}</div>
+    </div>`;
+  });
+  body.innerHTML=`<div class="tl-ruler"><div class="tl-ruler-spacer" style="width:${TL_LABEL_W}px"></div><div class="tl-ruler-hours">${rulerHtml}</div></div>${lanesHtml}`;
+  document.getElementById('tlLegend').innerHTML=
+    boatsToday.map(b=>`<div class="tl-leg-item"><div class="tl-leg-swatch" style="background:${BOAT_COLORS[b]}"></div>${b}</div>`).join('')+
+    `<span class="tl-hint">← → arrow keys to switch days</span>`;
+}
+
+// ── TOOLTIP ──────────────────────────────────────────────────────
+function showTip(e,encoded) { if(tipPinned) return; _renderTip(e,encoded); }
+function clickBlock(e,encoded) { e.stopPropagation(); tipPinned=!tipPinned; if(tipPinned)_renderTip(e,encoded); else hideTip(); }
+function _renderTip(e,encoded) {
+  const d=JSON.parse(decodeURIComponent(encoded));
+  const tip=document.getElementById('tlTip');
+  const color=BOAT_COLORS[d.boat]||'#888';
+  tip.innerHTML=`
+    <div class="tl-tip-boat" style="color:${color}">● ${d.boat}</div>
+    <div class="tl-tip-type">${d.type}</div>
+    <div class="tl-tip-time">${d.time} – ${d.end} &nbsp;·&nbsp; ${d.dur}</div>
+    <div class="tl-tip-row"><span class="lbl">Captain</span><span class="val">${d.captain}</span></div>
+    ${d.crew&&d.crew!=='—'?`<div class="tl-tip-row"><span class="lbl">Crew</span><span class="val">${d.crew}</span></div>`:''}
+    ${d.notes?`<div class="tl-tip-note">⚑ ${d.notes}</div>`:''}
+    <div class="tl-tip-pin">${tipPinned?'Click block again to unpin':'Click block to pin'}</div>`;
+  const W=230,H=160;
+  let left=e.clientX+12,top=e.clientY-H/2;
+  if(left+W>window.innerWidth-8) left=e.clientX-W-12;
+  if(top<8) top=8;
+  if(top+H>window.innerHeight-8) top=window.innerHeight-H-8;
+  tip.style.left=left+'px'; tip.style.top=top+'px';
+  tip.className='tl-tip show';
+}
+function hideTip() { if(!tipPinned) document.getElementById('tlTip').className='tl-tip'; }
+
+// ── EXPORT ───────────────────────────────────────────────────────
+function dlCSV() {
+  const h=['Date','Day','Start Time','End Time','Charter Type','Boat','Duration','Captain','Crew 1','Crew 2','Notes'];
+  const rows=sched.map(s=>[s.date,s.day,s.time,s.end_time,s.charter_type,s.boat,s.duration,s.captain,s.crew[0]||'',s.crew[1]||'',s.notes]);
+  const csv=[h,...rows].map(r=>r.map(v=>'"'+(v||'')+'"').join(',')).join('\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=`charter_schedule_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+}
+function copySheets() {
+  const h=['Date','Day','Start Time','End Time','Charter Type','Boat','Duration','Captain','Crew 1','Crew 2','Notes'];
+  const rows=sched.map(s=>[s.date,s.day,s.time,s.end_time,s.charter_type,s.boat,s.duration,s.captain,s.crew[0]||'',s.crew[1]||'',s.notes||'']);
+  navigator.clipboard.writeText([h,...rows].map(r=>r.join('\t')).join('\n')).then(()=>{
+    const el=document.getElementById('copyConfirm'); el.style.display='block';
+    setTimeout(()=>el.style.display='none',3000);
+  });
+}
+function showErr(msg) { const el=document.getElementById('errorBox'); el.textContent=msg; el.className='error-box show'; }
+function resetAll() {
+  sched=[]; expandedCrew=null; overrides=[]; tlDays=[]; tlDayIdx=0; tipPinned=false;
+  document.getElementById('results').className='results';
+  document.getElementById('progress').className='progress';
+  document.getElementById('errorBox').className='error-box';
+  renderOverrideTags(); hideTip();
+}
+</script>
+</body>
+</html>
